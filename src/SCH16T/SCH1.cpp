@@ -1052,27 +1052,27 @@ int SCH1::SCH1_init(uint8_t cs_pin, SCH1_filter sFilter, SCH1_sensitivity sSensi
         SCH1_getStatus(&SCH1statusAll);
         SCH1_getStatus(&SCH1statusAll);
 
-        Serial.println("SCH1 status:");
-        Serial.print("Summary: 0x");
-        Serial.println(SCH1statusAll.Summary, HEX);
-        Serial.print("Summary_Sat: 0x");
-        Serial.println(SCH1statusAll.Summary_Sat, HEX);
-        Serial.print("Common: 0x");
-        Serial.println(SCH1statusAll.Common, HEX);
-        Serial.print("Rate_Common: 0x");
-        Serial.println(SCH1statusAll.Rate_Common, HEX);
-        Serial.print("Rate_X: 0x");
-        Serial.println(SCH1statusAll.Rate_X, HEX);
-        Serial.print("Rate_Y: 0x");
-        Serial.println(SCH1statusAll.Rate_Y, HEX);
-        Serial.print("Rate_Z: 0x");
-        Serial.println(SCH1statusAll.Rate_Z, HEX);
-        Serial.print("Acc_X: 0x");
-        Serial.println(SCH1statusAll.Acc_X, HEX);
-        Serial.print("Acc_Y: 0x");
-        Serial.println(SCH1statusAll.Acc_Y, HEX);
-        Serial.print("Acc_Z: 0x");
-        Serial.println(SCH1statusAll.Acc_Z, HEX);
+        // Serial.println("SCH1 status:");
+        // Serial.print("Summary: 0x");
+        // Serial.println(SCH1statusAll.Summary, HEX);
+        // Serial.print("Summary_Sat: 0x");
+        // Serial.println(SCH1statusAll.Summary_Sat, HEX);
+        // Serial.print("Common: 0x");
+        // Serial.println(SCH1statusAll.Common, HEX);
+        // Serial.print("Rate_Common: 0x");
+        // Serial.println(SCH1statusAll.Rate_Common, HEX);
+        // Serial.print("Rate_X: 0x");
+        // Serial.println(SCH1statusAll.Rate_X, HEX);
+        // Serial.print("Rate_Y: 0x");
+        // Serial.println(SCH1statusAll.Rate_Y, HEX);
+        // Serial.print("Rate_Z: 0x");
+        // Serial.println(SCH1statusAll.Rate_Z, HEX);
+        // Serial.print("Acc_X: 0x");
+        // Serial.println(SCH1statusAll.Acc_X, HEX);
+        // Serial.print("Acc_Y: 0x");
+        // Serial.println(SCH1statusAll.Acc_Y, HEX);
+        // Serial.print("Acc_Z: 0x");
+        // Serial.println(SCH1statusAll.Acc_Z, HEX);
 
 
         if (!SCH1_verifyStatus(&SCH1statusAll)) {

@@ -234,9 +234,9 @@
 
 #define AVG_FACTOR  10      // SCH1 sample averaging
 
-#define FILTER_RATE         30.0f       // Hz, LPF1 Nominal Cut-off Frequency (-3dB).
-#define FILTER_ACC12        30.0f
-#define FILTER_ACC3         30.0f
+#define FILTER_RATE         235.0f       // Hz, LPF0 Nominal Cut-off Frequency (-3dB). Works for 100hz sample rate
+#define FILTER_ACC12        235.0f
+#define FILTER_ACC3         235.0f
 #define SENSITIVITY_RATE1   1600.0f     // LSB / dps, DYN1 Nominal Sensitivity for 20 bit data.
 #define SENSITIVITY_RATE2   1600.0f
 #define SENSITIVITY_ACC1    3200.0f     // LSB / m/s2, DYN1 Nominal Sensitivity for 20 bit data.
