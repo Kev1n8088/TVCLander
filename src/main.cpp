@@ -19,11 +19,9 @@ Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 void setup() {
   // put your setup code here, to run once
 
-  Serial.begin(115200);
-  while (!Serial) {
-    delay(10); // wait for serial port to connect. Needed for native USB
+  if (DEBUG_MODE) {
+      DEBUG_SERIAL.begin(DEBUG_BAUD); // Initialize debug serial port with specified baud rate
   }
-
 
   pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
   pixels.setBrightness(10);

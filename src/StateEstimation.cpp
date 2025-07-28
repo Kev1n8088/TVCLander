@@ -13,6 +13,9 @@
 #include <Adafruit_LIS2MDL.h>
 
 
+/**
+ * @brief Constructor for StateEstimation. Initializes sensors and SPI.
+ */
 StateEstimation::StateEstimation()
     : IMU0(IMU0_RST_PIN), // Initialize SCH1 with the reset pin
       IMU1(SPI, IMU1_CS_PIN), // Initialize ICM456xx with SPI and CS pin
@@ -22,15 +25,23 @@ StateEstimation::StateEstimation()
     SPI.begin();
 }
 
+/**
+ * @brief Initializes all sensors and returns a bitmask of failures.
+ * @return Bitmask indicating which sensors failed to initialize.
+ */
 int StateEstimation::begin(){
     int failMask = 0;
     if (beginBaro() != 0)  failMask |= 0x01;
     if (beginIMU0() != 0)  failMask |= 0x02;
     if (beginIMU1() != 0)  failMask |= 0x04;
     if (beginMag()  != 0)  failMask |= 0x08;
+    sensorStatus = failMask; // Store the sensor status in the class variable
     return failMask;
 }
 
+/**
+ * @brief Resets all state estimation variables to initial conditions.
+ */
 void StateEstimation::resetVariables(){
     
     // init variables
@@ -47,6 +58,9 @@ void StateEstimation::resetVariables(){
     gyroBias[2] = 0.0f; // Gyro bias for Z axis in rad/s
 }
 
+/**
+ * @brief Resets linear state variables (acceleration, velocity, position).
+ */
 void StateEstimation::resetLinearVariables(){
     // Reset linear variables
     accelLoopMicros = 0;
@@ -60,6 +74,9 @@ void StateEstimation::resetLinearVariables(){
     }
 }
 
+/**
+ * @brief Returns the current expected mass of the vehicle in kg.
+ */
 float StateEstimation::getMass(){
     //Returns current expected mass of the vehicle in kg
 
@@ -67,6 +84,9 @@ float StateEstimation::getMass(){
     return 1.0f; 
 }
 
+/**
+ * @brief Returns the moment arm of the vehicle in meters.
+ */
 float StateEstimation::getMomentArm(){
     // Returns the moment arm of the vehicle in meters
 
@@ -74,6 +94,9 @@ float StateEstimation::getMomentArm(){
     return 0.15f;
 }
 
+/**
+ * @brief Returns the pitch and yaw moment of inertia in kg*m^2.
+ */
 float StateEstimation::getPitchYawMMOI(){
     // Returns the pitch and yaw moment of inertia in kg*m^2
 
@@ -81,6 +104,9 @@ float StateEstimation::getPitchYawMMOI(){
     return 0.026f;
 }
 
+/**
+ * @brief Returns the roll moment of inertia in kg*m^2.
+ */
 float StateEstimation::getRollMMOI(){
     // Returns the roll moment of inertia in kg*m^2
 
@@ -89,10 +115,17 @@ float StateEstimation::getRollMMOI(){
     return 0.011f;
 }
 
+/**
+ * @brief Returns the current thrust value.
+ */
 float StateEstimation::getThrust(){
     return thrust;
 }
 
+/**
+ * @brief Initializes the barometric sensor.
+ * @return 0 on success, -1 on failure.
+ */
 int StateEstimation::beginBaro(){
   if (! bmp.begin_SPI(BMP_CS)) {  // hardware SPI mode  
     Serial.println("Could not find a valid BMP3 sensor, check wiring!");
@@ -104,6 +137,10 @@ int StateEstimation::beginBaro(){
 }
 
 
+/**
+ * @brief Initializes the primary IMU (SCH1).
+ * @return 0 on success, error code otherwise.
+ */
 int StateEstimation::beginIMU0(){
     // Uses Interpolated
 
@@ -129,7 +166,9 @@ int StateEstimation::beginIMU0(){
 
     int ret = IMU0.SCH1_init(IMU0_CS_PIN, Filter, Sensitivity, Decimation, true, 10000000, &SPI);
     if(ret != SCH1_OK) {
-        Serial.println("SCH1 initialization failed!");
+        if(DEBUG_SERIAL){
+            Serial.println("SCH1 initialization failed!");
+        }
         return ret; // Return the error code
     } else {
         Serial.println("SCH1 initialized successfully!");
@@ -137,6 +176,10 @@ int StateEstimation::beginIMU0(){
     }
 }
 
+/**
+ * @brief Initializes the secondary IMU (ICM456xx).
+ * @return 0 on success, error code otherwise.
+ */
 int StateEstimation::beginIMU1(){
     int ret = IMU1.begin();
     if (ret != 0) {
@@ -148,6 +191,10 @@ int StateEstimation::beginIMU1(){
     }
 }
 
+/**
+ * @brief Initializes the magnetometer.
+ * @return 0 on success, error code otherwise.
+ */
 int StateEstimation::beginMag(){
     lis2mdl.enableAutoRange(true);
     if (! lis2mdl.begin_SPI(LIS2MDL_CS)) {  // hardware SPI mode
@@ -159,7 +206,26 @@ int StateEstimation::beginMag(){
     }
 }
 
+/**
+ * @brief Main state estimation loop. Updates state variables periodically.
+ */
 void StateEstimation::estimateState(){  
+    // Main state estimation loop. This function should be called periodically to update the state estimation.
+    if (lastStateEstimateMicros == 0) { // If this is the first update, set lastStateEstimateMicros to current time
+        lastStateEstimateMicros = micros();
+        return;
+    }
+
+    if (micros() - lastStateEstimateMicros < STATE_ESTIMATION_INTERVAL_US) { // If not enough time has passed since last update, return
+        return;
+    }
+
+    lastStateEstimateMicros = micros(); // Update last state estimate time
+
+    if (launchTime != 0.0f){
+        timeSinceLaunch = (millis() - launchTime) / 1000.0f; // Calculate time since launch in seconds
+    }
+
     switch (vehicleState){
         case 0: // Disarmed State
             if (digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
@@ -178,6 +244,9 @@ void StateEstimation::estimateState(){
         
 }
 
+/**
+ * @brief Reads IMU0 sensor data and converts it to usable format.
+ */
 void StateEstimation::readIMU0(){
     IMU0.SCH1_getData(&rawIMU0Data);
     IMU0.SCH1_convert_data(&rawIMU0Data, &resultIMU0Data);
@@ -185,6 +254,9 @@ void StateEstimation::readIMU0(){
 
 //Axes: X axis is UP (Gravity is -X), Y axis is RIGHT, Z axis is BACK (Right hand rule). Matches Falcon9 standard
 //Rotation Axes: X is ROLL, Y is PITCH, Z is YAW
+/**
+ * @brief Updates orientation using gyro data.
+ */
 void StateEstimation::oriLoop(){
     if (lastOriUpdate == 0) { // If this is the first update, set lastOriUpdate to current time
         lastOriUpdate = micros();
@@ -200,6 +272,9 @@ void StateEstimation::oriLoop(){
     ori.update(radians(resultIMU0Data.Rate2[1]) - gyroBias[0], radians(resultIMU0Data.Rate2[0]) - gyroBias[1], radians(resultIMU0Data.Rate2[2]) - gyroBias[2], dtOri); 
 }
 
+/**
+ * @brief Updates acceleration, velocity, and position using IMU data.
+ */
 void StateEstimation::accelLoop(){
     if (lastAccelUpdate == 0) { // If this is the first update, set lastAccelUpdate to current time
         lastAccelUpdate = micros();
@@ -228,6 +303,9 @@ void StateEstimation::accelLoop(){
     thrust = resultIMU0Data.Acc2[1] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
 }
 
+/**
+ * @brief Updates gyro biases and orientation before launch.
+ */
 void StateEstimation::updatePrelaunch(){
     // Update gyro biases and orientation before launch. Can be improved with iterative gyro bias estimation and complementary filter but is not necessary for now.
 

@@ -1,3 +1,6 @@
+#ifndef STATEESTIMATION_H
+#define STATEESTIMATION_H
+
 #include <Orientation.h>
 #include <Quaternion.h>
 #include <Arduino.h>
@@ -19,6 +22,8 @@ private:
     Adafruit_BMP3XX bmp;
     Adafruit_LIS2MDL lis2mdl;
 
+    uint64_t lastStateEstimateMicros; // Last time state estimation was run in microseconds
+
     uint64_t oriLoopMicros;
     uint64_t lastOriUpdate;
 
@@ -35,14 +40,17 @@ private:
 
     float gyroBias[3]; // Gyro bias in rad/s
 
-    int vehicleState; // 0 = disarmed, 1 armed, 2 launched before apogee, 3 past apogee, 4 landing burn;
+    int vehicleState; // 0 = disarmed, 1 armed, 2 launched before apogee, 3 past apogee, 4 landing burn, 5 landed.;
     float launchTime; // Time of launch in seconds 
+    float timeSinceLaunch; // Time since launch in seconds
 
     float worldAccel[3];
     float worldVelocity[3]; // World frame velocity in m/s
     float worldPosition[3]; // World frame position in m 
 
     float thrust;
+
+    int sensorStatus;
 
 
     int beginBaro();
@@ -68,6 +76,34 @@ public:
     float getRollMMOI();
     float getMomentArm();
     float getThrust();
+    int getVehicleState() { return vehicleState; }
+    float getTimeSinceLaunch() { return timeSinceLaunch; }
+    int getSensorStatus() { return sensorStatus; }
 
-    
+    // Telemetry getters
+    const Quaternion& getOrientationQuaternion() const { return ori.orientation; }
+    void getOrientationQuaternionArray(float out[4]) const {
+        out[0] = ori.orientation.a;
+        out[1] = ori.orientation.b;
+        out[2] = ori.orientation.c;
+        out[3] = ori.orientation.d;
+    }
+    const float* getWorldAccel() const { return worldAccel; }
+    const float* getWorldVelocity() const { return worldVelocity; }
+    const float* getWorldPosition() const { return worldPosition; }
+    // Returns raw accel in body frame, with x/y flipped
+    void getRawAccel(float out[3]) const {
+        out[0] = resultIMU0Data.Acc2[1]; // X (UP)
+        out[1] = resultIMU0Data.Acc2[0]; // Y (RIGHT)
+        out[2] = resultIMU0Data.Acc2[2]; // Z (BACK)
+    }
+    // Returns raw gyro in body frame, with x/y flipped
+    void getRawGyro(float out[3]) const {
+        out[0] = resultIMU0Data.Rate2[1]; // X (ROLL)
+        out[1] = resultIMU0Data.Rate2[0]; // Y (PITCH)
+        out[2] = resultIMU0Data.Rate2[2]; // Z (YAW)
+    }
+    const float* getGyroBias() const { return gyroBias; }
 };
+
+#endif // STATEESTIMATION_H
