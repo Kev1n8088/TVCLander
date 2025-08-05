@@ -79,6 +79,9 @@ public:
     int getVehicleState() { return vehicleState; }
     float getTimeSinceLaunch() { return timeSinceLaunch; }
     int getSensorStatus() { return sensorStatus; }
+    void setVehicleState(int state); // Set the vehicle state, 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
+
+    const float* getEulerAngle();
 
     // Telemetry getters
     const Quaternion& getOrientationQuaternion() const { return ori.orientation; }

@@ -4,6 +4,9 @@
 #include <Constants.h>
 #include "StateEstimation.h"
 
+EXTMEM uint8_t telemetryBuffer[MAX_DATA_LOGS * BYTES_PER_LOG];
+static uint8_t serialBuffer[32 * 1024];
+
 /**
  * @brief Telemetry constructor. Initializes member variables.
  */
@@ -13,6 +16,7 @@ Telemetry::Telemetry(){
     oldVehicleState = 0;
     telemetryBufferUsed = 0;
     SDGood = 0;
+    logFileName = "flightlog.bin";
 }
 
 /**
@@ -70,23 +74,23 @@ void Telemetry::telemetryLoop(StateEstimation& state){
         int SDGoodVal = SDGood;
 
         // Log data
-        dataLog(
-            millis() / 1000.0f, // timeSec
-            quat,
-            worldAccel,
-            worldVelocity,
-            worldPosition,
-            rawAccel,
-            rawGyro,
-            gyroBias,
-            attitudeSetpoint,
-            servoCommand,
-            thrust,
-            reactionWheelSpeed,
-            vehicleState,
-            sensorStatus,
-            SDGoodVal
-        );
+        // dataLog(
+        //     millis() / 1000.0f, // timeSec
+        //     quat,
+        //     worldAccel,
+        //     worldVelocity,
+        //     worldPosition,
+        //     rawAccel,
+        //     rawGyro,
+        //     gyroBias,
+        //     attitudeSetpoint,
+        //     servoCommand,
+        //     thrust,
+        //     reactionWheelSpeed,
+        //     vehicleState,
+        //     sensorStatus,
+        //     SDGoodVal
+        // );
 
         if (vehicleState != oldVehicleState) {
             oldVehicleState = vehicleState;
@@ -95,7 +99,7 @@ void Telemetry::telemetryLoop(StateEstimation& state){
             }
         }
         if (DEBUG_MODE) {
-            DEBUG_SERIAL.println("Data logged");
+            //DEBUG_SERIAL.println("Data logged");
         }
     }
 
@@ -140,7 +144,19 @@ void Telemetry::telemetryLoop(StateEstimation& state){
             sensorStatus,
             SDGoodVal
         );
-    }
+
+        float eulerAngles[3]; // yaw pitch roll
+        memcpy(eulerAngles, state.getEulerAngle(), 3 * sizeof(float));
+        if (DEBUG_MODE){
+            DEBUG_SERIAL.print("Orientation: ");
+            DEBUG_SERIAL.print(degrees(eulerAngles[0]),4);
+            DEBUG_SERIAL.print(", ");
+            DEBUG_SERIAL.print(degrees(eulerAngles[1]),4);
+            DEBUG_SERIAL.print(", ");
+            DEBUG_SERIAL.print(degrees(eulerAngles[2]),4);
+            DEBUG_SERIAL.println();
+        }
+    }   
 }
 
 /**
@@ -227,4 +243,16 @@ void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAcc
     memcpy(ptr, &sensorStatus, sizeof(int)); ptr += sizeof(int);
     memcpy(ptr, &SDGood, sizeof(int)); ptr += sizeof(int);
     TELEMETRY_SERIAL.write(buffer, BYTES_PER_LOG);
+
+    if (DEBUG_MODE){
+        // DEBUG_SERIAL.print("Quaternion: ");
+        // DEBUG_SERIAL.print(quaternion[0], 4);
+        // DEBUG_SERIAL.print(", ");
+        // DEBUG_SERIAL.print(quaternion[1], 4);
+        // DEBUG_SERIAL.print(", ");
+        // DEBUG_SERIAL.print(quaternion[2], 4);
+        // DEBUG_SERIAL.print(", ");
+        // DEBUG_SERIAL.print(quaternion[3], 4);
+        // DEBUG_SERIAL.println();
+    }
 }

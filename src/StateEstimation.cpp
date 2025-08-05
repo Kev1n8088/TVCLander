@@ -35,6 +35,7 @@ int StateEstimation::begin(){
     if (beginIMU0() != 0)  failMask |= 0x02;
     if (beginIMU1() != 0)  failMask |= 0x04;
     if (beginMag()  != 0)  failMask |= 0x08;
+    resetVariables();
     sensorStatus = failMask; // Store the sensor status in the class variable
     return failMask;
 }
@@ -250,6 +251,16 @@ void StateEstimation::estimateState(){
 void StateEstimation::readIMU0(){
     IMU0.SCH1_getData(&rawIMU0Data);
     IMU0.SCH1_convert_data(&rawIMU0Data, &resultIMU0Data);
+    // if(DEBUG_MODE){
+    //     DEBUG_SERIAL.print("IMU0 Data: ");
+    //     DEBUG_SERIAL.print("Rate2: ");
+    //     DEBUG_SERIAL.print(resultIMU0Data.Rate1[0], 4);
+    //     DEBUG_SERIAL.print(", ");
+    //     DEBUG_SERIAL.print(resultIMU0Data.Rate1[1], 4);
+    //     DEBUG_SERIAL.print(", ");
+    //     DEBUG_SERIAL.print(resultIMU0Data.Rate1[2], 4);
+    //     DEBUG_SERIAL.println();
+    // }
 }
 
 //Axes: X axis is UP (Gravity is -X), Y axis is RIGHT, Z axis is BACK (Right hand rule). Matches Falcon9 standard
@@ -268,8 +279,7 @@ void StateEstimation::oriLoop(){
     lastOriUpdate = oriLoopMicros;
 
     // TODO: Check for inverts, should be correct
-    //Uses Rate2 = decimated rate data
-    ori.update(radians(resultIMU0Data.Rate2[1]) - gyroBias[0], radians(resultIMU0Data.Rate2[0]) - gyroBias[1], radians(resultIMU0Data.Rate2[2]) - gyroBias[2], dtOri); 
+    ori.update(radians(resultIMU0Data.Rate1[2]) - gyroBias[0], radians(resultIMU0Data.Rate1[0]) - gyroBias[1], radians(resultIMU0Data.Rate1[1]) - gyroBias[2], dtOri); 
 }
 
 /**
@@ -282,7 +292,7 @@ void StateEstimation::accelLoop(){
     }
 
     
-    ori.updateAccel(resultIMU0Data.Acc2[1], resultIMU0Data.Acc2[0], resultIMU0Data.Acc2[2]); // Update the orientation with the measured acceleration in body frame
+    ori.updateAccel(resultIMU0Data.Acc1[1], resultIMU0Data.Acc1[0], resultIMU0Data.Acc1[2]); // Update the orientation with the measured acceleration in body frame
 
     worldAccel[0] = ori.worldAccel.b + WORLD_GRAVITY_X; // X acceleration in world frame
     worldAccel[1] = ori.worldAccel.c + WORLD_GRAVITY_Y; // Y acceleration in world frame
@@ -300,7 +310,7 @@ void StateEstimation::accelLoop(){
     worldPosition[1] += worldVelocity[1] * dtAccel; // Update Y position in world frame
     worldPosition[2] += worldVelocity[2] * dtAccel; // Update Z position in world frame
 
-    thrust = resultIMU0Data.Acc2[1] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
+    thrust = resultIMU0Data.Acc1[1] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
 }
 
 /**
@@ -327,6 +337,9 @@ void StateEstimation::updatePrelaunch(){
     gyroBias[2] = 0.0f; // Reset gyro bias for Z axis in rad/s
 
     float accelReading[3]; // Temporary array to store acceleration readings
+    accelReading[0] = 0.0f; // Reset X acceleration in body frame
+    accelReading[1] = 0.0f; // Reset Y acceleration in body frame
+    accelReading[2] = 0.0f; // Reset Z acceleration in body frame
 
     Quaternion expectedGravity = Quaternion(-WORLD_GRAVITY_X, -WORLD_GRAVITY_Y, -WORLD_GRAVITY_Z); // Expected gravity vector as experienced by accelerometer
     expectedGravity = expectedGravity.normalize();
@@ -341,13 +354,13 @@ void StateEstimation::updatePrelaunch(){
             }
         }
         readIMU0(); // Read IMU data only if DRY pin is HIGH
-        gyroBias[0] += radians(resultIMU0Data.Rate2[1]); // Accumulate gyro bias for X axis in rad/s
-        gyroBias[1] += radians(resultIMU0Data.Rate2[0]); // Accumulate gyro bias for Y axis in rad/s
-        gyroBias[2] += radians(resultIMU0Data.Rate2[2]); // Accumulate gyro bias for Z axis in rad/s
+        gyroBias[0] += radians(resultIMU0Data.Rate1[2]); // Accumulate gyro bias for X axis in rad/s
+        gyroBias[1] += radians(resultIMU0Data.Rate1[0]); // Accumulate gyro bias for Y axis in rad/s
+        gyroBias[2] += radians(resultIMU0Data.Rate1[1]); // Accumulate gyro bias for Z axis in rad/s
 
-        accelReading[0] += resultIMU0Data.Acc2[1]; // X acceleration in body frame
-        accelReading[1] += resultIMU0Data.Acc2[0]; // Y acceleration in body frame
-        accelReading[2] += resultIMU0Data.Acc2[2]; // Z acceleration in body frame
+        accelReading[0] += resultIMU0Data.Acc1[1]; // X acceleration in body frame
+        accelReading[1] += resultIMU0Data.Acc1[0]; // Y acceleration in body frame
+        accelReading[2] += resultIMU0Data.Acc1[2]; // Z acceleration in body frame
 
         delay(PRELAUNCH_AVERAGE_INTERVAL); // Wait for the specified interval before next sample
     }
@@ -366,4 +379,26 @@ void StateEstimation::updatePrelaunch(){
 
     ori.orientation = actualAccel.rotation_between_vectors(expectedGravity); // Compute the orientation quaternion by rotating expected gravity vector to actual acceleration vector
     ori.orientation = ori.orientation.normalize(); // Normalize the orientation quaternion
+}
+
+
+void StateEstimation::setVehicleState(int state){
+    // Set the vehicle state
+    // 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
+    if (state >= 0 && state <= 5) {
+        vehicleState = state;
+    } else {
+        //Serial.println("Invalid vehicle state");
+    }
+}
+
+const float* StateEstimation::getEulerAngle(){
+    // Returns the Euler angles in radians
+    // X: Roll, Y: Pitch, Z: Yaw
+    static float euler[3];
+    EulerAngles a = ori.toEuler(); // Get Euler angles from orientation quaternion
+    euler[0] = a.yaw;   // Roll (X axis)
+    euler[1] = a.pitch;  // Pitch (Y axis)
+    euler[2] = a.roll;    // Yaw (Z axis)
+    return euler; // Return the Euler angles
 }

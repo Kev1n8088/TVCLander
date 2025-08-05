@@ -1102,12 +1102,14 @@ int SCH1::SCH1_init(uint8_t cs_pin, SCH1_filter sFilter, SCH1_sensitivity sSensi
  */
 void SCH1::SCH1_getData(SCH1_raw_data *data)
 {
-    SCH1_sendRequest(REQ_READ_RATE_X1);
-    uint64_t rate_x_raw = SCH1_sendRequest(REQ_READ_RATE_Y1);
-    uint64_t rate_y_raw = SCH1_sendRequest(REQ_READ_RATE_Z1);
-    uint64_t rate_z_raw = SCH1_sendRequest(REQ_READ_ACC_X1);
-    uint64_t acc_x_raw  = SCH1_sendRequest(REQ_READ_ACC_Y1);
-    uint64_t acc_y_raw  = SCH1_sendRequest(REQ_READ_ACC_Z1);
+
+    //Note this code is modified to read decimated rate - still puts it in rate1 tho. 
+    SCH1_sendRequest(REQ_READ_RATE_X2);
+    uint64_t rate_x_raw = SCH1_sendRequest(REQ_READ_RATE_Y2);
+    uint64_t rate_y_raw = SCH1_sendRequest(REQ_READ_RATE_Z2);
+    uint64_t rate_z_raw = SCH1_sendRequest(REQ_READ_ACC_X2);
+    uint64_t acc_x_raw  = SCH1_sendRequest(REQ_READ_ACC_Y2);
+    uint64_t acc_y_raw  = SCH1_sendRequest(REQ_READ_ACC_Z2);
     uint64_t acc_z_raw  = SCH1_sendRequest(REQ_READ_TEMP);
     uint64_t temp_raw   = SCH1_sendRequest(REQ_READ_TEMP);
 

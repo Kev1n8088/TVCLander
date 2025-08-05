@@ -232,7 +232,7 @@
 #define S_ACC_Z_STS_RDY         0x0001
 
 
-#define AVG_FACTOR  10      // SCH1 sample averaging
+#define AVG_FACTOR  1      // SCH1 sample averaging
 
 #define FILTER_RATE         30.0f       // Hz, LPF0 Nominal Cut-off Frequency (-3dB). Works for 200hz sample rate
 #define FILTER_ACC12        30.0f

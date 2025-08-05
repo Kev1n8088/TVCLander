@@ -11,10 +11,9 @@ private:
     uint64_t lastLogMillis;
     uint64_t lastTelemetryMillis;
 
-    EXTMEM uint8_t telemetryBuffer[MAX_DATA_LOGS * BYTES_PER_LOG];
-    static uint8_t serialBuffer[32 * 1024];
+    
     size_t telemetryBufferUsed;
-    String logFileName = "flightlog.bin";
+    String logFileName;
 
     int oldVehicleState;
     int SDGood;
