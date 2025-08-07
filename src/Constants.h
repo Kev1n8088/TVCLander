@@ -32,8 +32,8 @@
 #define SRV6 37
 
 // Gimbal Pins
-#define YAW_SERVO SRV0
-#define PITCH_SERVO SRV1
+#define YAW_SERVO SRV4
+#define PITCH_SERVO SRV3
 
 // Roll motor controller pins
 #define ROLL_MINUS SERV5

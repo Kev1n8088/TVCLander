@@ -11,6 +11,7 @@
 #include "StateEstimation.h"
 #include "Telemetry.h"
 #include "PID.h"
+#include "Servo.h"
 
 // Instantiate an ICM456XX with SPI interface and CS on pin 8
 
@@ -21,8 +22,13 @@ Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 StateEstimation StateEstimate;
 Telemetry TelemetrySystem;
 
+Servo PitchServo;
+Servo YawServo;
+
 void setup() {
   // put your setup code here, to run once
+  PitchServo.attach(PITCH_SERVO); // Attach the pitch servo to the specified pin
+  YawServo.attach(YAW_SERVO); // Attach the yaw servo to the specified pin
 
   if (DEBUG_MODE) {
       DEBUG_SERIAL.begin(DEBUG_BAUD); // Initialize debug serial port with specified baud rate
@@ -43,6 +49,10 @@ void setup() {
 }
 
 void loop() {
-  StateEstimate.estimateState();
-  TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data=
+  PitchServo.writeMicroseconds(1500);
+  YawServo.writeMicroseconds(1500); // Set servos to neutral position
+  delay(1000); // Wait for servos to stabilize
+
+  //StateEstimate.estimateState();
+  //TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data=
 }
