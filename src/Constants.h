@@ -18,6 +18,8 @@
 //BMP390 constants
 #define BMP_CS A2
 #define SEALEVELPRESSURE_HPA (1013.25)
+#define BARO_ADJUST_N 10 //number of samples for baro adjustment
+#define BARO_ADJUST_INTERVAL 500 // milliseconds between baro samples
 
 //LIS2MDL constants
 #define LIS2MDL_CS A14
@@ -47,7 +49,7 @@
 #define WORLD_GRAVITY_Z -0.0f
 
 #define PRELAUNCH_UPDATE_INTERVAL 3000 // Update interval in milliseconds before launch
-#define PRELAUNCH_AVERAGE_COUNT 10 // Number of samples to average before launch
+#define PRELAUNCH_AVERAGE_COUNT 10 // Number of samples to average IMU before launch
 #define PRELAUNCH_AVERAGE_INTERVAL 30 // Interval in milliseconds between samples before launch
 
 #define STATE_ESTIMATION_INTERVAL_US 500 // Interval in microseconds for state estimation updates
@@ -66,5 +68,12 @@
 #define MAX_DATA_LOGS 2000 // Maximum number of data logs to store
 
 #define LOG_SEPARATOR 0xDEADBEEF
+
+#define Y_TARGET 2.0f // Target Y position in meters for landing
+#define X_TARGET 0.0f // Target X position in meters for landing
+
+#define GIMBAL_LIMIT_RAD 5.0 * DEG_TO_RAD // 5 degrees in radians
+
+#define PYRO_LOCKOUT_ALT 5.0
 
 #endif // CONSTANTS_H
