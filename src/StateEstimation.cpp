@@ -54,7 +54,7 @@ void StateEstimation::resetVariables(){
     gimbalMisalignAccumulator[0] = 0;
     gimbalMisalignAccumulator[1] = 0;
 
-    gimbalMisalignNum = 0;
+    gimbalMisalignTime = 0;
 
     gimbalForceAccumulator = 0;
 
@@ -497,11 +497,11 @@ void StateEstimation::getGimbalMisalign(){
     if (vehicleState == 2 && timeSinceLaunch > 0){
         float dt = (float)(micros() - lastGimbalMisalignMicros) / 1000000.0f; // Convert to seconds
         lastGimbalMisalignMicros = micros(); // Update last gimbal misalign time
-        gimbalForceAccumulator += getThrust();
+        gimbalForceAccumulator += getThrust() * dt;
         gimbalMisalignAccumulator[0] += radians(resultIMU0Data.Rate1[2]) * dt; // Accumulate gimbal misalign for yaw
         gimbalMisalignAccumulator[1] += radians(resultIMU0Data.Rate1[0]) * dt;
-        gimbalMisalignNum++;
-        float f = gimbalForceAccumulator / gimbalMisalignNum;
+        gimbalMisalignTime += dt;
+        float f = gimbalForceAccumulator / gimbalMisalignTime;
 
         if(f < 0.01f) { // If force is too low, do not calculate misalign
             return;

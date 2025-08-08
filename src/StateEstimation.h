@@ -53,7 +53,7 @@ private:
 
     uint64_t lastGimbalMisalignMicros;
     float gimbalMisalignAccumulator[2]; //Rate accumulator, gets current angular displacement from start to current of calculation
-    float gimbalMisalignNum;
+    float gimbalMisalignTime;
     float gimbalMisalign[2]; // Misalign yaw and pitch
     float gimbalForceAccumulator;
 
