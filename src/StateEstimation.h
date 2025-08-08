@@ -51,9 +51,10 @@ private:
     float worldVelocity[3]; // World frame velocity in m/s
     float worldPosition[3]; // World frame position in m 
 
-    float gimbalMisalignAccumulator[2]; //Rate accumulator
+    uint64_t lastGimbalMisalignMicros;
+    float gimbalMisalignAccumulator[2]; //Rate accumulator, gets current angular displacement from start to current of calculation
     float gimbalMisalignNum;
-    float gimbalMisalign[2]; // Vehicle yaw and pitch
+    float gimbalMisalign[2]; // Misalign yaw and pitch
     float gimbalForceAccumulator;
 
     float thrust;

@@ -61,6 +61,8 @@ void StateEstimation::resetVariables(){
     oriLoopMicros = 0;
     lastOriUpdate = 0;
 
+    lastGimbalMisalignMicros = 0;
+
     ori.zero(); // Reset orientation to initial conditions (1, 0, 0, 0)
 
     // Initialize gyro bias to zero
@@ -467,6 +469,7 @@ void StateEstimation::detectLaunch(){
         if (abs(pow(resultIMU0Data.Acc1[1], 2) + pow(resultIMU0Data.Acc1[0], 2) + pow(resultIMU0Data.Acc1[2], 2)) > LAUNCH_ACCEL_THRESHOLD){
             vehicleState = 2;       
             launchTime = millis() / 1000.0;
+            lastGimbalMisalignMicros = micros();
         }
     }
 }
@@ -487,20 +490,28 @@ void StateEstimation::detectApogee(){
 
 // gets gimbal misalign, assumes that it starts at launch time = 0
 void StateEstimation::getGimbalMisalign(){
+    if(lastGimbalMisalignMicros == 0) { // If this is the first update, set lastGimbalMisalignMicros to current time
+        lastGimbalMisalignMicros = micros();
+        return;
+    }
     if (vehicleState == 2 && timeSinceLaunch > 0){
+        float dt = (float)(micros() - lastGimbalMisalignMicros) / 1000000.0f; // Convert to seconds
+        lastGimbalMisalignMicros = micros(); // Update last gimbal misalign time
         gimbalForceAccumulator += getThrust();
-        gimbalMisalignAccumulator[0] += radians(resultIMU0Data.Rate1[2]);
-        gimbalMisalignAccumulator[1] += radians(resultIMU0Data.Rate1[0]);
+        gimbalMisalignAccumulator[0] += radians(resultIMU0Data.Rate1[2]) * dt; // Accumulate gimbal misalign for yaw
+        gimbalMisalignAccumulator[1] += radians(resultIMU0Data.Rate1[0]) * dt;
         gimbalMisalignNum++;
         float f = gimbalForceAccumulator / gimbalMisalignNum;
-        gimbalMisalign[0] = gimbalMisalignAccumulator[0] / gimbalMisalignNum;
-        gimbalMisalign[1] = gimbalMisalignAccumulator[1] / gimbalMisalignNum;
+
+        if(f < 0.01f) { // If force is too low, do not calculate misalign
+            return;
+        }
 
         float i = getPitchYawMMOI();
         float r = getMomentArm();
 
-        gimbalMisalign[0] = asin((2 * gimbalMisalign[0] * i)/(r * f * timeSinceLaunch * timeSinceLaunch));
-        gimbalMisalign[1] = asin((2 * gimbalMisalign[1] * i)/(r * f * timeSinceLaunch * timeSinceLaunch));
+        gimbalMisalign[0] = asin((2 * gimbalMisalignAccumulator[0] * i)/(r * f * timeSinceLaunch * timeSinceLaunch));
+        gimbalMisalign[1] = asin((2 * gimbalMisalignAccumulator[1] * i)/(r * f * timeSinceLaunch * timeSinceLaunch));
 
     }
     
