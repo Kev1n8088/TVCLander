@@ -23,6 +23,7 @@ StateEstimation::StateEstimation()
       lis2mdl(12345)
 {
     SPI.begin();
+    resetVariables();
 }
 
 /**
@@ -35,7 +36,6 @@ int StateEstimation::begin(){
     if (beginIMU0() != 0)  failMask |= 0x02;
     if (beginIMU1() != 0)  failMask |= 0x04;
     if (beginMag()  != 0)  failMask |= 0x08;
-    resetVariables();
     sensorStatus = failMask; // Store the sensor status in the class variable
     return failMask;
 }
@@ -47,6 +47,16 @@ void StateEstimation::resetVariables(){
     
     // init variables
     resetLinearVariables();
+
+    gimbalMisalign[0] = 0;
+    gimbalMisalign[1] = 0;
+
+    gimbalMisalignAccumulator[0] = 0;
+    gimbalMisalignAccumulator[1] = 0;
+
+    gimbalMisalignNum = 0;
+
+    gimbalForceAccumulator = 0;
 
     oriLoopMicros = 0;
     lastOriUpdate = 0;
@@ -67,6 +77,9 @@ void StateEstimation::resetLinearVariables(){
     accelLoopMicros = 0;
     lastAccelUpdate = 0;
 
+    apogeeAltitude = 0;
+    landingIgnitionAltitude = 0;
+
     // Reset world frame acceleration, velocity, and position
     for (int i = 0; i < 3; i++) {
         worldAccel[i] = 0.0f; // Reset acceleration in world frame
@@ -81,8 +94,12 @@ void StateEstimation::resetLinearVariables(){
 float StateEstimation::getMass(){
     //Returns current expected mass of the vehicle in kg
 
-    // TODO: needs to be dynamic
-    return 1.0f; 
+    // TODO: adjust nums
+    if (vehicleState < 5){
+        return 1.0f;
+    }else{
+        return 0.9f;
+    }
 }
 
 /**
@@ -91,8 +108,12 @@ float StateEstimation::getMass(){
 float StateEstimation::getMomentArm(){
     // Returns the moment arm of the vehicle in meters
 
-    // TODO: needs to be dynamic
-    return 0.15f;
+    // TODO: adjust nums
+    if (vehicleState < 5){
+        return 0.15f;
+    }else{
+        return 0.16f;
+    }
 }
 
 /**
@@ -101,8 +122,12 @@ float StateEstimation::getMomentArm(){
 float StateEstimation::getPitchYawMMOI(){
     // Returns the pitch and yaw moment of inertia in kg*m^2
 
-    // TODO: needs to be dynamic
-    return 0.026f;
+    // TODO: adjust nums
+    if (vehicleState < 5){
+        return 0.026f;
+    }else{
+        return 0.020f;
+    }
 }
 
 /**
@@ -111,9 +136,12 @@ float StateEstimation::getPitchYawMMOI(){
 float StateEstimation::getRollMMOI(){
     // Returns the roll moment of inertia in kg*m^2
 
-    // TODO: needs to be dynamic
-
-    return 0.011f;
+    // TODO: adjust nums
+    if (vehicleState < 5){
+        return 0.011f;
+    }else{
+        return 0.011f;
+    }
 }
 
 /**
@@ -224,9 +252,10 @@ void StateEstimation::estimateState(){
     lastStateEstimateMicros = micros(); // Update last state estimate time
 
     if (launchTime != 0.0f){
-        timeSinceLaunch = (millis() - launchTime) / 1000.0f; // Calculate time since launch in seconds
+        timeSinceLaunch = millis() / 1000.0f - launchTime; // Calculate time since launch in seconds
     }
 
+    // State machine
     switch (vehicleState){
         case 0: // Disarmed State
             if (digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
@@ -239,7 +268,39 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                detectLaunch();
             }
+            break;
+        case 2: // No gimbal command state, characterizing misalign
+            if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
+                readIMU0(); // Read IMU data only if DRY
+                oriLoop(); // Call orientation loop to update orientation
+                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+            }
+            // TODO: Lock servos in center position
+            if (timeSinceLaunch > MISALIGN_CHARACTERIZATION_TIME){
+                vehicleState = 3;
+            }
+            break;
+        case 3: //Standard guidance state
+            if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
+                readIMU0(); // Read IMU data only if DRY
+                oriLoop(); // Call orientation loop to update orientation
+                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+            }
+            // TODO: insert code for updating servos
+            if (timeSinceLaunch > GIMBAL_STABILIZATION_TIME){
+                vehicleState = 4;
+            }
+            break;
+        case 4: // Return to vertical state
+            if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
+                readIMU0(); // Read IMU data only if DRY
+                oriLoop(); // Call orientation loop to update orientation
+                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                detectApogee();
+            }
+            // TODO: Insert code for updating servos
             break;
     }
         
@@ -277,8 +338,6 @@ void StateEstimation::oriLoop(){
     oriLoopMicros = micros();
     float dtOri = (float)(oriLoopMicros - lastOriUpdate) / 1000000.0f; // Convert to seconds
     lastOriUpdate = oriLoopMicros;
-
-    // TODO: Check for inverts, should be correct
     ori.update(radians(resultIMU0Data.Rate1[2]) - gyroBias[0], radians(resultIMU0Data.Rate1[0]) - gyroBias[1], radians(resultIMU0Data.Rate1[1]) - gyroBias[2], dtOri); 
 }
 
@@ -381,9 +440,8 @@ void StateEstimation::updatePrelaunch(){
     ori.orientation = ori.orientation.normalize(); // Normalize the orientation quaternion
 }
 
-
+// Set the vehicle state
 void StateEstimation::setVehicleState(int state){
-    // Set the vehicle state
     // 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
     if (state >= 0 && state <= 5) {
         vehicleState = state;
@@ -392,13 +450,58 @@ void StateEstimation::setVehicleState(int state){
     }
 }
 
+// Returns the Euler angles in radians
+// X: Roll, Y: Pitch, Z: Yaw
 const float* StateEstimation::getEulerAngle(){
-    // Returns the Euler angles in radians
-    // X: Roll, Y: Pitch, Z: Yaw
     static float euler[3];
     EulerAngles a = ori.toEuler(); // Get Euler angles from orientation quaternion
     euler[0] = a.yaw;   // Roll (X axis)
     euler[1] = a.pitch;  // Pitch (Y axis)
     euler[2] = a.roll;    // Yaw (Z axis)
     return euler; // Return the Euler angles
+}
+
+// Detects Launch via absolute value of acceleration
+void StateEstimation::detectLaunch(){
+    if (vehicleState == 1){
+        if (abs(pow(resultIMU0Data.Acc1[1], 2) + pow(resultIMU0Data.Acc1[0], 2) + pow(resultIMU0Data.Acc1[2], 2)) > LAUNCH_ACCEL_THRESHOLD){
+            vehicleState = 2;       
+            launchTime = millis() / 1000.0;
+        }
+    }
+}
+
+// Uses accel integration only to detect apogee altitude and calculates correct ignition altitude
+void StateEstimation::detectApogee(){
+    if (worldPosition[0] > apogeeAltitude){
+        apogeeAltitude = worldPosition[0];
+    }
+    if (worldPosition[0] < apogeeAltitude - BELOW_APOGEE_THRESHOLD){
+        // TODO: Smarter ignition altitude adjustment
+        if (vehicleState == 4){
+            landingIgnitionAltitude = 0.667 * apogeeAltitude;
+            vehicleState = 5;
+        }
+    }
+}
+
+// gets gimbal misalign, assumes that it starts at launch time = 0
+void StateEstimation::getGimbalMisalign(){
+    if (vehicleState == 2 && timeSinceLaunch > 0){
+        gimbalForceAccumulator += getThrust();
+        gimbalMisalignAccumulator[0] += radians(resultIMU0Data.Rate1[2]);
+        gimbalMisalignAccumulator[1] += radians(resultIMU0Data.Rate1[0]);
+        gimbalMisalignNum++;
+        float f = gimbalForceAccumulator / gimbalMisalignNum;
+        gimbalMisalign[0] = gimbalMisalignAccumulator[0] / gimbalMisalignNum;
+        gimbalMisalign[1] = gimbalMisalignAccumulator[1] / gimbalMisalignNum;
+
+        float i = getPitchYawMMOI();
+        float r = getMomentArm();
+
+        gimbalMisalign[0] = asin((2 * gimbalMisalign[0] * i)/(r * f * timeSinceLaunch * timeSinceLaunch));
+        gimbalMisalign[1] = asin((2 * gimbalMisalign[1] * i)/(r * f * timeSinceLaunch * timeSinceLaunch));
+
+    }
+    
 }

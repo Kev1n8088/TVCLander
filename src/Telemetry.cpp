@@ -94,7 +94,7 @@ void Telemetry::telemetryLoop(StateEstimation& state){
 
         if (vehicleState != oldVehicleState) {
             oldVehicleState = vehicleState;
-            if (vehicleState == 5) {
+            if (vehicleState == 7) {
                 dumpToSD();
             }
         }

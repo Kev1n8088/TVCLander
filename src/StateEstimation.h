@@ -13,6 +13,7 @@
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_LIS2MDL.h>
+#include "PID.h"
 
 class StateEstimation
 {
@@ -21,6 +22,8 @@ private:
     ICM456xx IMU1;
     Adafruit_BMP3XX bmp;
     Adafruit_LIS2MDL lis2mdl;
+
+
 
     uint64_t lastStateEstimateMicros; // Last time state estimation was run in microseconds
 
@@ -40,17 +43,25 @@ private:
 
     float gyroBias[3]; // Gyro bias in rad/s
 
-    int vehicleState; // 0 = disarmed, 1 armed, 2 launched before apogee, 3 past apogee, 4 landing burn, 5 landed.;
+    int vehicleState; // 0 = disarmed, 1 armed, 2 launched characterizing misalign, 3 launched guidance, 4 launched returning to vertical, //5 past apogee, 6 landing burn, 7 landed, -1 abort state;
     float launchTime; // Time of launch in seconds 
     float timeSinceLaunch; // Time since launch in seconds
 
-    float worldAccel[3];
+    float worldAccel[3]; // Up is X
     float worldVelocity[3]; // World frame velocity in m/s
     float worldPosition[3]; // World frame position in m 
+
+    float gimbalMisalignAccumulator[2]; //Rate accumulator
+    float gimbalMisalignNum;
+    float gimbalMisalign[2]; // Vehicle yaw and pitch
+    float gimbalForceAccumulator;
 
     float thrust;
 
     int sensorStatus;
+
+    float apogeeAltitude;
+    float landingIgnitionAltitude;
 
 
     int beginBaro();
@@ -67,6 +78,11 @@ private:
     void resetVariables();
     void resetLinearVariables();
 
+    void detectLaunch();
+    void detectApogee();
+    void getGimbalMisalign();
+    
+
 public:
     StateEstimation();
     void estimateState();
@@ -79,7 +95,7 @@ public:
     int getVehicleState() { return vehicleState; }
     float getTimeSinceLaunch() { return timeSinceLaunch; }
     int getSensorStatus() { return sensorStatus; }
-    void setVehicleState(int state); // Set the vehicle state, 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
+    void setVehicleState(int state); 
 
     const float* getEulerAngle();
 

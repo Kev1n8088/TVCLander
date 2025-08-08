@@ -76,4 +76,10 @@
 
 #define PYRO_LOCKOUT_ALT 5.0
 
+#define LAUNCH_ACCEL_THRESHOLD 11.3 // m/s^2
+#define MISALIGN_CHARACTERIZATION_TIME 0.5 //s, T+ at which we stop characterizing gimbal misalign
+#define GIMBAL_STABILIZATION_TIME 2.5 //s, T+ at which we switch to stabilize mode
+
+#define BELOW_APOGEE_THRESHOLD 1.0 // meters
+
 #endif // CONSTANTS_H
