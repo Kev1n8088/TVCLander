@@ -10,7 +10,6 @@
 #include <Constants.h>
 #include "StateEstimation.h"
 #include "Telemetry.h"
-#include "PID.h"
 #include "Servo.h"
 
 // Instantiate an ICM456XX with SPI interface and CS on pin 8
@@ -44,15 +43,12 @@ void setup() {
 
   DEBUG_SERIAL.println(StateEstimate.begin()); // Initialize state estimation
   TelemetrySystem.begin(); // Initialize telemetry system
-  StateEstimate.setVehicleState(1);
+  StateEstimate.setVehicleState(0); // Set initial vehicle state to disarmed
 
 }
 
 void loop() {
-  PitchServo.writeMicroseconds(1500);
-  YawServo.writeMicroseconds(1500); // Set servos to neutral position
-  delay(1000); // Wait for servos to stabilize
 
-  //StateEstimate.estimateState();
-  //TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data=
+  StateEstimate.estimateState();
+  TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data=
 }

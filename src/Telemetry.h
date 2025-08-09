@@ -28,6 +28,9 @@ private:
                       float rawGyro[3], float gyroBias[3], float attitudeSetpoint[2], 
                       float servoCommand[2], float thrust, float reactionWheelSpeed, 
                       int vehicleState, int sensorStatus, int SDGood);
+
+    void handleReceive(StateEstimation& state);
+    uint32_t crc32(const uint8_t* data, size_t length);
 public:
     Telemetry();
     void begin();

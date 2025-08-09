@@ -4,8 +4,14 @@
 #include <Constants.h>
 #include "StateEstimation.h"
 
+
 EXTMEM uint8_t telemetryBuffer[MAX_DATA_LOGS * BYTES_PER_LOG];
 static uint8_t serialBuffer[32 * 1024];
+
+enum PacketType {
+    PACKET_TELEMETRY = 0x01,
+    PACKET_COMMAND   = 0x02
+};
 
 /**
  * @brief Telemetry constructor. Initializes member variables.
@@ -46,6 +52,8 @@ void Telemetry::begin(){
  */
 void Telemetry::telemetryLoop(StateEstimation& state){
     uint64_t currentMillis = millis();
+
+    handleReceive(state);
 
     if (currentMillis - lastLogMillis >= DATALOG_INTERVAL) {
         lastLogMillis = currentMillis;
@@ -155,6 +163,13 @@ void Telemetry::telemetryLoop(StateEstimation& state){
             DEBUG_SERIAL.print(", ");
             DEBUG_SERIAL.print(degrees(eulerAngles[2]),4);
             DEBUG_SERIAL.println();
+            DEBUG_SERIAL.print("Acceleration: ");
+            DEBUG_SERIAL.print(rawAccel[0],4);
+            DEBUG_SERIAL.print(", ");
+            DEBUG_SERIAL.print(rawAccel[1],4);
+            DEBUG_SERIAL.print(", ");
+            DEBUG_SERIAL.print(rawAccel[2],4);
+            DEBUG_SERIAL.println();
         }
     }   
 }
@@ -223,7 +238,7 @@ void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAcc
                 float rawGyro[3], float gyroBias[3], float attitudeSetpoint[2], float servoCommand[2], 
                 float thrust, float reactionWheelSpeed, int vehicleState, int sensorStatus, int SDGood) {
     // Pack data in the same binary format as dataLog
-    uint8_t buffer[BYTES_PER_LOG];
+    uint8_t buffer[BYTES_PER_LOG + 4];
     uint8_t* ptr = buffer;
     uint32_t sep = LOG_SEPARATOR;
     memcpy(ptr, &sep, sizeof(sep)); ptr += sizeof(sep);
@@ -242,7 +257,13 @@ void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAcc
     memcpy(ptr, &vehicleState, sizeof(int)); ptr += sizeof(int);
     memcpy(ptr, &sensorStatus, sizeof(int)); ptr += sizeof(int);
     memcpy(ptr, &SDGood, sizeof(int)); ptr += sizeof(int);
-    TELEMETRY_SERIAL.write(buffer, BYTES_PER_LOG);
+
+    
+    uint32_t crc = crc32(buffer, BYTES_PER_LOG);
+    memcpy(ptr, &crc, sizeof(crc));
+    ptr += sizeof(crc);
+
+    TELEMETRY_SERIAL.write(buffer, BYTES_PER_LOG + 4);
 
     if (DEBUG_MODE){
         // DEBUG_SERIAL.print("Quaternion: ");
@@ -255,4 +276,78 @@ void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAcc
         // DEBUG_SERIAL.print(quaternion[3], 4);
         // DEBUG_SERIAL.println();
     }
+}
+
+void Telemetry::handleReceive(StateEstimation& state) {
+    static uint8_t rxBuffer[256];
+    static size_t rxIndex = 0;
+
+    while (TELEMETRY_SERIAL.available()) {
+        uint8_t byte = TELEMETRY_SERIAL.read();
+        rxBuffer[rxIndex++] = byte;
+
+        // Wait for at least header
+        if (rxIndex >= 4) {
+            uint16_t delim = (rxBuffer[0] << 8) | rxBuffer[1];
+            uint8_t type = rxBuffer[2];
+            uint8_t len = rxBuffer[3];
+
+            // Check start delimiter
+            if (delim != RECV_START_DELIM) {
+                // Shift buffer left by one
+                memmove(rxBuffer, rxBuffer + 1, --rxIndex);
+                continue;
+            }
+
+            // Wait for full packet
+            if (rxIndex < 4 + len + 4) continue;
+
+            // CRC check
+            uint32_t receivedCrc;
+            memcpy(&receivedCrc, rxBuffer + 4 + len, 4);
+            uint32_t calcCrc = crc32(rxBuffer, 4 + len);
+
+            if (receivedCrc == calcCrc) {
+                // Valid packet
+                if (type == PACKET_COMMAND) {
+                    // Extract first 4 bytes of payload as command ID
+                    if (len >= 4) {
+                        uint32_t cmdId;
+                        memcpy(&cmdId, rxBuffer + 4, 4);
+                        switch (cmdId) {
+                            case 0xAAAAAAAA: // Arm command
+                                    state.setVehicleState(1); 
+                                break;
+                            case 0xDDDDDDDD: // Disarm command
+                                    state.setVehicleState(0);
+                                break;
+                            default:
+                                // Unknown command
+                                break;
+                        }
+                    }
+                } else if (type == PACKET_TELEMETRY) {
+                    // Handle telemetry
+                }
+            }
+            // Remove processed packet from buffer
+            size_t packetSize = 4 + len + 4;
+            memmove(rxBuffer, rxBuffer + packetSize, rxIndex - packetSize);
+            rxIndex -= packetSize;
+        }
+    }
+}
+
+uint32_t Telemetry::crc32(const uint8_t* data, size_t length) {
+    uint32_t crc = 0xFFFFFFFF;
+    for (size_t i = 0; i < length; ++i) {
+        crc ^= data[i];
+        for (int j = 0; j < 8; ++j) {
+            if (crc & 1)
+                crc = (crc >> 1) ^ 0xEDB88320;
+            else
+                crc >>= 1;
+        }
+    }
+    return ~crc;
 }

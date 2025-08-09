@@ -147,10 +147,11 @@ float StateEstimation::getRollMMOI(){
 }
 
 /**
- * @brief Returns the current thrust value.
+ * @brief Returns the current thrust value. Minimum is 12.5 N, maximum is 25.0 N.
  */
 float StateEstimation::getThrust(){
-    return thrust;
+
+    return min(max(12.5, thrust), 25.0);
 }
 
 /**
@@ -270,7 +271,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                detectLaunch();
+                //detectLaunch();
             }
             break;
         case 2: // No gimbal command state, characterizing misalign
@@ -340,7 +341,7 @@ void StateEstimation::oriLoop(){
     oriLoopMicros = micros();
     float dtOri = (float)(oriLoopMicros - lastOriUpdate) / 1000000.0f; // Convert to seconds
     lastOriUpdate = oriLoopMicros;
-    ori.update(radians(resultIMU0Data.Rate1[2]) - gyroBias[0], radians(resultIMU0Data.Rate1[0]) - gyroBias[1], radians(resultIMU0Data.Rate1[1]) - gyroBias[2], dtOri); 
+    ori.update(radians(resultIMU0Data.Rate1[2]) - gyroBias[0], radians(resultIMU0Data.Rate1[0]) - gyroBias[1], radians(-resultIMU0Data.Rate1[1]) - gyroBias[2], dtOri); 
 }
 
 /**
@@ -417,7 +418,7 @@ void StateEstimation::updatePrelaunch(){
         readIMU0(); // Read IMU data only if DRY pin is HIGH
         gyroBias[0] += radians(resultIMU0Data.Rate1[2]); // Accumulate gyro bias for X axis in rad/s
         gyroBias[1] += radians(resultIMU0Data.Rate1[0]); // Accumulate gyro bias for Y axis in rad/s
-        gyroBias[2] += radians(resultIMU0Data.Rate1[1]); // Accumulate gyro bias for Z axis in rad/s
+        gyroBias[2] += radians(-resultIMU0Data.Rate1[1]); // Accumulate gyro bias for Z axis in rad/s
 
         accelReading[0] += resultIMU0Data.Acc1[1]; // X acceleration in body frame
         accelReading[1] += resultIMU0Data.Acc1[0]; // Y acceleration in body frame
@@ -435,22 +436,37 @@ void StateEstimation::updatePrelaunch(){
     //accelReading[0] /= PRELAUNCH_AVERAGE_COUNT; // Average X acceleration in body frame
     //accelReading[1] /= PRELAUNCH_AVERAGE_COUNT; // Average Y acceleration in body frame
     //accelReading[2] /= PRELAUNCH_AVERAGE_COUNT; // Average Z acceleration in body frame
-    Quaternion actualAccel = Quaternion(accelReading[1], accelReading[0], accelReading[2]); // Create quaternion from acceleration readings in body frame
+    Quaternion actualAccel = Quaternion(accelReading[0], accelReading[1], accelReading[2]); // Create quaternion from acceleration readings in body frame
     actualAccel = actualAccel.normalize(); // Normalize the quaternion to get unit vector
 
-    ori.orientation = actualAccel.rotation_between_vectors(expectedGravity); // Compute the orientation quaternion by rotating expected gravity vector to actual acceleration vector
+    ori.orientation = expectedGravity.rotation_between_vectors(actualAccel); // Compute the orientation quaternion by rotating expected gravity vector to actual acceleration vector
     ori.orientation = ori.orientation.normalize(); // Normalize the orientation quaternion
 }
 
-// Set the vehicle state
+// Set the vehicle state.
 void StateEstimation::setVehicleState(int state){
     // 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
-    if (state >= 0 && state <= 5) {
-        vehicleState = state;
+    if (state >= -1 && state <= 7) {
+        switch (state){
+            case 1: // armed process
+                if (vehicleState == 0){
+                    vehicleState = 1;
+                }
+                break;
+            case 0: //disarm process
+                resetVariables(); // Reset all variables to initial conditions
+                vehicleState = 0; // Set vehicle state to disarmed
+                break;
+            default:
+                vehicleState = state;
+                break;
+        }
     } else {
         //Serial.println("Invalid vehicle state");
     }
 }
+
+
 
 // Returns the Euler angles in radians
 // X: Roll, Y: Pitch, Z: Yaw

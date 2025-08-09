@@ -13,7 +13,6 @@
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_LIS2MDL.h>
-#include "PID.h"
 
 class StateEstimation
 {
@@ -111,17 +110,17 @@ public:
     const float* getWorldAccel() const { return worldAccel; }
     const float* getWorldVelocity() const { return worldVelocity; }
     const float* getWorldPosition() const { return worldPosition; }
-    // Returns raw accel in body frame, with x/y flipped
+    // Returns raw accel in body frame, up right back
     void getRawAccel(float out[3]) const {
-        out[0] = resultIMU0Data.Acc2[1]; // X (UP)
-        out[1] = resultIMU0Data.Acc2[0]; // Y (RIGHT)
-        out[2] = resultIMU0Data.Acc2[2]; // Z (BACK)
+        out[0] = resultIMU0Data.Acc1[1]; // X (UP)
+        out[1] = resultIMU0Data.Acc1[0]; // Y (RIGHT)
+        out[2] = resultIMU0Data.Acc1[2]; // Z (BACK)
     }
-    // Returns raw gyro in body frame, with x/y flipped
+    // Returns raw gyro in body frame
     void getRawGyro(float out[3]) const {
-        out[0] = resultIMU0Data.Rate2[1]; // X (ROLL)
-        out[1] = resultIMU0Data.Rate2[0]; // Y (PITCH)
-        out[2] = resultIMU0Data.Rate2[2]; // Z (YAW)
+        out[0] = resultIMU0Data.Rate1[2]; // (yaw)
+        out[1] = resultIMU0Data.Rate1[0]; // (PITCH)
+        out[2] = -resultIMU0Data.Rate1[1]; // (roll)
     }
     const float* getGyroBias() const { return gyroBias; }
 };

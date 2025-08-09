@@ -82,4 +82,6 @@
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
 
+#define RECV_START_DELIM 0xAA55
+
 #endif // CONSTANTS_H
