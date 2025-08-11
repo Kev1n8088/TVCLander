@@ -119,8 +119,8 @@ public:
     // Returns raw gyro in body frame
     void getRawGyro(float out[3]) const {
         out[0] = resultIMU0Data.Rate1[2]; // (yaw)
-        out[1] = resultIMU0Data.Rate1[0]; // (PITCH)
-        out[2] = -resultIMU0Data.Rate1[1]; // (roll)
+        out[1] = -resultIMU0Data.Rate1[0]; // (PITCH)
+        out[2] = resultIMU0Data.Rate1[1]; // (roll)
     }
     const float* getGyroBias() const { return gyroBias; }
 };

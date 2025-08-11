@@ -31,9 +31,9 @@ void setup() {
 
   if (DEBUG_MODE) {
       DEBUG_SERIAL.begin(DEBUG_BAUD); // Initialize debug serial port with specified baud rate
-      while (!DEBUG_SERIAL) {
-        delay(1); // Wait for serial port to connect. Needed for native USB port only
-      }
+      // while (!DEBUG_SERIAL) {
+      //   delay(1); // Wait for serial port to connect. Needed for native USB port only
+      // }
   }
 
   pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
@@ -48,7 +48,9 @@ void setup() {
 }
 
 void loop() {
-
+  if (millis() > 10000){
+    StateEstimate.setVehicleState(1); // Set vehicle state to armed after 10 seconds
+  }
   StateEstimate.estimateState();
   TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data=
 }

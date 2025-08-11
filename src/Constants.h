@@ -49,13 +49,13 @@
 #define WORLD_GRAVITY_Z -0.0f
 
 #define PRELAUNCH_UPDATE_INTERVAL 3000 // Update interval in milliseconds before launch
-#define PRELAUNCH_AVERAGE_COUNT 10 // Number of samples to average IMU before launch
+#define PRELAUNCH_AVERAGE_COUNT 30 // Number of samples to average IMU before launch
 #define PRELAUNCH_AVERAGE_INTERVAL 30 // Interval in milliseconds between samples before launch
 
 #define STATE_ESTIMATION_INTERVAL_US 500 // Interval in microseconds for state estimation updates
 
 #define TELEMETRY_BAUD 57600 // Baud rate for telemetry communication
-#define DEBUG_BAUD 115200 // Baud rate for debug communication
+#define DEBUG_BAUD 57600 // Baud rate for debug communication
 #define DEBUG_SERIAL Serial
 #define TELEMETRY_SERIAL Serial1 // Serial port for telemetry communication
 #define DEBUG_MODE 1 // Set to 1 to enable debug mode, 0 to disable
