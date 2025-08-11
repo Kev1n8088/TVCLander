@@ -30,6 +30,8 @@ public:
         float vel_x, vel_y, vel_z;
         float pos_x, pos_y, pos_z;
         float time_since_launch;
+        uint32_t vehicle_ms;
+        uint32_t down_count;
     };
     
     // Sensor data structure
@@ -40,14 +42,20 @@ public:
         float accel_x, accel_y, accel_z;
         float baro_altitude;
         float gyro_bias_yaw, gyro_bias_pitch, gyro_bias_roll;
+        uint32_t vehicle_ms;
+        uint32_t down_count;
     };
     
     // Pack a command acknowledgement
-    static size_t packCommandAck(uint8_t command_type, uint8_t command_id, uint8_t* p) {
-        uint8_t payload[3];
-        payload[0] = 0; // Reserved addressing byte
-        payload[1] = command_type + 50; // Ack message type
-        payload[2] = command_id;
+    static size_t packCommandAck(uint8_t command_type, uint8_t command_id, uint8_t* p, uint32_t vehicle_ms, uint32_t down_count) {
+        uint8_t payload[11];
+        size_t offset = 0;
+        payload[offset++]  = 0; // Reserved addressing byte
+        payload[offset++]  = command_type + 50; // Ack message type
+        payload[offset++]  = command_id;
+
+        packUINT32(payload, offset, vehicle_ms); offset += 4;
+        packUINT32(payload, offset, down_count); 
 
         uint8_t packet[sizeof(payload) + HEADER_SIZE + CHECKSUM_SIZE];
         size_t a = packPacket(payload, sizeof(payload), packet, sizeof(packet));
@@ -59,7 +67,7 @@ public:
     
     // Pack state telemetry
     static size_t packStateTelemetry(const StateTelemetry& state, uint8_t* p) {
-        uint8_t payload[59]; 
+        uint8_t payload[67]; 
         size_t offset = 0;
         
         payload[offset++] = 0; // Reserved addressing
@@ -80,7 +88,9 @@ public:
         packFloat(payload, offset, state.pos_x); offset += 4;
         packFloat(payload, offset, state.pos_y); offset += 4;
         packFloat(payload, offset, state.pos_z); offset += 4;
-        packFloat(payload, offset, state.time_since_launch);
+        packFloat(payload, offset, state.time_since_launch); offset += 4;
+        packUINT32(payload, offset, state.vehicle_ms); offset += 4;
+        packUINT32(payload, offset, state.down_count); 
         
         uint8_t packet[sizeof(payload) + HEADER_SIZE + CHECKSUM_SIZE];
         size_t a = packPacket(payload, sizeof(payload), packet, sizeof(packet));
@@ -92,7 +102,7 @@ public:
     
     // Pack sensor data
     static size_t packSensorData(const SensorData& sensors, uint8_t* p) {
-        uint8_t payload[44];
+        uint8_t payload[52];
         size_t offset = 0;
         
         payload[offset++] = 0; // Reserved addressing
@@ -109,7 +119,9 @@ public:
         packFloat(payload, offset, sensors.baro_altitude); offset += 4;
         packFloat(payload, offset, sensors.gyro_bias_yaw); offset += 4;
         packFloat(payload, offset, sensors.gyro_bias_pitch); offset += 4;
-        packFloat(payload, offset, sensors.gyro_bias_roll);
+        packFloat(payload, offset, sensors.gyro_bias_roll); offset += 4;
+        packUINT32(payload, offset, sensors.vehicle_ms); offset += 4;
+        packUINT32(payload, offset, sensors.down_count); 
         
         
         uint8_t packet[sizeof(payload) + HEADER_SIZE + CHECKSUM_SIZE];
@@ -197,6 +209,7 @@ public:
         return result;
     }
     
+    // up count not used for now, could be used for tracking dropped packets
     // Parse arm/disarm commands
     static uint8_t parseCommand(const UnpackedPacket& packet) {
         if (!packet.valid || packet.data_length == 0) {
@@ -226,6 +239,20 @@ private:
         float value;
         memcpy(&value, &bits, sizeof(float));
         return value;
+    }
+
+    static float packUINT32(uint8_t* buffer, size_t offset, uint32_t value) {
+        buffer[offset] = value & 0xFF;
+        buffer[offset + 1] = (value >> 8) & 0xFF;
+        buffer[offset + 2] = (value >> 16) & 0xFF;
+        buffer[offset + 3] = (value >> 24) & 0xFF;
+    }
+
+    static uint32_t unpackUINT32(const uint8_t* buffer, size_t offset) {
+        return (buffer[offset] | 
+                (buffer[offset + 1] << 8) | 
+                (buffer[offset + 2] << 16) | 
+                (buffer[offset + 3] << 24));
     }
     
     static size_t packPacket(const uint8_t* payload, size_t payload_size, uint8_t* buffer, size_t buffer_size) {

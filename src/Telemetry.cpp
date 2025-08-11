@@ -13,6 +13,7 @@ enum PacketType {
     PACKET_COMMAND   = 0x02
 };
 
+
 /**
  * @brief Telemetry constructor. Initializes member variables.
  */
@@ -23,6 +24,7 @@ Telemetry::Telemetry(){
     telemetryBufferUsed = 0;
     SDGood = 0;
     logFileName = "flightlog.bin";
+    downCount = 0;
 }
 
 /**
@@ -115,6 +117,7 @@ void Telemetry::telemetryLoop(StateEstimation& state){
     if (currentMillis - lastTelemetryMillis >= TELEMETRY_INTERVAL) {
         lastTelemetryMillis = currentMillis;
         // Prepare telemetry data
+        float launchTime = state.getLaunchTime();
         float quat[4];
         state.getOrientationQuaternionArray(quat);
         float worldAccel[3];
@@ -139,7 +142,7 @@ void Telemetry::telemetryLoop(StateEstimation& state){
 
 
         sendTelemetry(
-            millis() / 1000.0f,
+            launchTime,
             quat,
             worldAccel,
             worldVelocity,
@@ -227,6 +230,8 @@ void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAcc
                 float rawGyro[3], float gyroBias[3], float attitudeSetpoint[2], float servoCommand[2], 
                 float thrust, float reactionWheelSpeed, int vehicleState, int sensorStatus, int SDGood) {
 
+    downCount = (downCount + 1) % 4294967296; // Increment downCount and wrap around at 2^32
+    
     LINK80::StateTelemetry state = {
         .vehicle_state = (int8_t)vehicleState,
         .quat_w = quaternion[0],
@@ -242,7 +247,9 @@ void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAcc
         .pos_x = worldPosition[0],
         .pos_y = worldPosition[1],
         .pos_z = worldPosition[2],
-        .time_since_launch = timeSec
+        .time_since_launch = timeSec,
+        .vehicle_ms = millis(),
+        .down_count = downCount,
     };
 
     uint8_t packet_buffer[255];

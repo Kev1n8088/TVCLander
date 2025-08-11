@@ -10,6 +10,8 @@ class Telemetry{
 private:
     uint64_t lastLogMillis;
     uint64_t lastTelemetryMillis;
+    
+    uint32_t downCount;
 
     
     size_t telemetryBufferUsed;
