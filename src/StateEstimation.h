@@ -13,6 +13,7 @@
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_LIS2MDL.h>
+#include "PID.h"
 
 class StateEstimation
 {
@@ -22,7 +23,11 @@ private:
     Adafruit_BMP3XX bmp;
     Adafruit_LIS2MDL lis2mdl;
 
-
+    PID PitchPID;
+    PID YawPID;
+    PID RollPID;
+    PID YPositionPID;
+    PID ZPositionPID;
 
     uint64_t lastStateEstimateMicros; // Last time state estimation was run in microseconds
 
@@ -41,11 +46,13 @@ private:
     uint64_t preLaunchLastUpdateMillis; //PRELAUNCH, last time gyro biases/orientation were updated in milliseconds
 
     float gyroBias[3]; // Gyro bias in rad/s
+    float gyroRemovedBias[3]; // Gyro data with bias removed in rad/s
 
     int vehicleState; // 0 = disarmed, 1 armed, 2 launched characterizing misalign, 3 launched guidance, 4 launched returning to vertical, //5 past apogee, 6 landing burn, 7 landed, -1 abort state;
     float launchTime; // Time of launch in seconds 
     float timeSinceLaunch; // Time since launch in seconds
 
+    float accelCalibrated[3]; // Calibrated acceleration in body frame
     float worldAccel[3]; // Up is X
     float worldVelocity[3]; // World frame velocity in m/s
     float worldPosition[3]; // World frame position in m 
@@ -55,6 +62,9 @@ private:
     float gimbalMisalignTime;
     float gimbalMisalign[2]; // Misalign yaw and pitch
     float gimbalForceAccumulator;
+
+    float attitudeSetpoint[2]; // Yaw and Pitch setpoints for gimbal
+    float gimbalCommand[2]; // before transform applied for servo command
 
     float thrust;
 
@@ -81,9 +91,11 @@ private:
     void detectLaunch();
     void detectApogee();
     void getGimbalMisalign();
+    void PIDLoop();
+    void actuate();
     
 
-public:
+public: 
     StateEstimation();
     void estimateState();
     int begin();
@@ -123,6 +135,8 @@ public:
         out[2] = resultIMU0Data.Rate1[1]; // (roll)
     }
     const float* getGyroBias() const { return gyroBias; }
+    const float* getGyroRemovedBias() const { return gyroRemovedBias; }
+    const float* getAccelCalibrated() const { return accelCalibrated; }
 };
 
 #endif // STATEESTIMATION_H

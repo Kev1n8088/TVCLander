@@ -65,3 +65,15 @@ void PID::compute(float setpoint, float measuredValue, float derivative, bool us
 float PID::getOutput(){
     return output;
 }
+
+/**
+ * @brief Change PID gains
+ * @param Kp New proportional gain
+ * @param Ki New integral gain
+ * @param Kd New derivative gain
+ */
+void PID::changeKs(float Kp, float Ki, float Kd){
+    this->Kp = Kp;
+    this->Ki = Ki;
+    this->Kd = Kd;
+}

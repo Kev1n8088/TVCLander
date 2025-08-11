@@ -70,14 +70,15 @@ void Telemetry::telemetryLoop(StateEstimation& state){
         memcpy(worldPosition, state.getWorldPosition(), 3 * sizeof(float));
         float rawAccel[3];
         float rawGyro[3];
-        state.getRawAccel(rawAccel);
-        state.getRawGyro(rawGyro);
+        memcpy(rawAccel, state.getAccelCalibrated(), 3 * sizeof(float));
+        memcpy(rawGyro, state.getGyroRemovedBias(), 3 * sizeof(float));
         float gyroBias[3];
         memcpy(gyroBias, state.getGyroBias(), 3 * sizeof(float));
         float attitudeSetpoint[2] = {0, 0}; // Placeholder
         float servoCommand[2] = {0, 0}; // Placeholder
         float thrust = state.getThrust();
         float reactionWheelSpeed = 0; // Placeholder
+        int vehicleState = state.getVehicleState(); 
         int sensorStatus = state.getSensorStatus();
         int SDGoodVal = SDGood;
 
@@ -124,8 +125,8 @@ void Telemetry::telemetryLoop(StateEstimation& state){
         memcpy(worldPosition, state.getWorldPosition(), 3 * sizeof(float));
         float rawAccel[3];
         float rawGyro[3];
-        state.getRawAccel(rawAccel);
-        state.getRawGyro(rawGyro);
+        memcpy(rawAccel, state.getAccelCalibrated(), 3 * sizeof(float));
+        memcpy(rawGyro, state.getGyroRemovedBias(), 3 * sizeof(float));
         float gyroBias[3];
         memcpy(gyroBias, state.getGyroBias(), 3 * sizeof(float));
         float attitudeSetpoint[2] = {0, 0}; // Placeholder
@@ -155,43 +156,7 @@ void Telemetry::telemetryLoop(StateEstimation& state){
             SDGoodVal
         );
 
-        float eulerAngles[3]; // yaw pitch roll
-        memcpy(eulerAngles, state.getEulerAngle(), 3 * sizeof(float));
         if (DEBUG_MODE){
-            // DEBUG_SERIAL.print("Orientation: ");
-            // DEBUG_SERIAL.print(degrees(eulerAngles[0]),4);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.print(degrees(eulerAngles[1]),4);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.print(degrees(eulerAngles[2]),4);
-            // DEBUG_SERIAL.println();
-
-            
-            // DEBUG_SERIAL.print("Acceleration: ");
-            // DEBUG_SERIAL.print(worldAccel[0],4);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.print(worldAccel[1],4);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.print(worldAccel[2],4);
-            // DEBUG_SERIAL.println();
-
-            // DEBUG_SERIAL.print("Quaternion: ");
-            // DEBUG_SERIAL.print(quat[0], 4);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.print(quat[1], 4);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.print(quat[2], 4);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.println(quat[3], 4);
-
-            // DEBUG_SERIAL.print("Quaternion: ");
-            // DEBUG_SERIAL.print(1.000);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.print(0);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.print(0);
-            // DEBUG_SERIAL.print(", ");
-            // DEBUG_SERIAL.println(0);
 
         }
     }   
@@ -261,31 +226,6 @@ void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAcc
                  float worldVelocity[3], float worldPosition[3], float rawAccel[3],
                 float rawGyro[3], float gyroBias[3], float attitudeSetpoint[2], float servoCommand[2], 
                 float thrust, float reactionWheelSpeed, int vehicleState, int sensorStatus, int SDGood) {
-    // Pack data in the same binary format as dataLog
-    // uint8_t buffer[BYTES_PER_LOG + 4];
-    // uint8_t* ptr = buffer;
-    // uint32_t sep = LOG_SEPARATOR;
-    // memcpy(ptr, &sep, sizeof(sep)); ptr += sizeof(sep);
-    // memcpy(ptr, &timeSec, sizeof(float)); ptr += sizeof(float);
-    // memcpy(ptr, quaternion, 4 * sizeof(float)); ptr += 4 * sizeof(float);
-    // memcpy(ptr, worldAccel, 3 * sizeof(float)); ptr += 3 * sizeof(float);
-    // memcpy(ptr, worldVelocity, 3 * sizeof(float)); ptr += 3 * sizeof(float);
-    // memcpy(ptr, worldPosition, 3 * sizeof(float)); ptr += 3 * sizeof(float);
-    // memcpy(ptr, rawAccel, 3 * sizeof(float)); ptr += 3 * sizeof(float);
-    // memcpy(ptr, rawGyro, 3 * sizeof(float)); ptr += 3 * sizeof(float);
-    // memcpy(ptr, gyroBias, 3 * sizeof(float)); ptr += 3 * sizeof(float);
-    // memcpy(ptr, attitudeSetpoint, 2 * sizeof(float)); ptr += 2 * sizeof(float);
-    // memcpy(ptr, servoCommand, 2 * sizeof(float)); ptr += 2 * sizeof(float);
-    // memcpy(ptr, &thrust, sizeof(float)); ptr += sizeof(float);
-    // memcpy(ptr, &reactionWheelSpeed, sizeof(float)); ptr += sizeof(float);
-    // memcpy(ptr, &vehicleState, sizeof(int)); ptr += sizeof(int);
-    // memcpy(ptr, &sensorStatus, sizeof(int)); ptr += sizeof(int);
-    // memcpy(ptr, &SDGood, sizeof(int)); ptr += sizeof(int);
-
-    
-    // uint32_t crc = crc32(buffer, BYTES_PER_LOG);
-    // memcpy(ptr, &crc, sizeof(crc));
-    // ptr += sizeof(crc);
 
     LINK80::StateTelemetry state = {
         .vehicle_state = (int8_t)vehicleState,
@@ -320,84 +260,10 @@ void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAcc
     if (DEBUG_MODE){
         //DEBUG_SERIAL.write(packet_buffer, packet_size);
         //for 6 point calibration
-        DEBUG_SERIAL.print(rawAccel[1], 4);
-        DEBUG_SERIAL.print(", ");
-        DEBUG_SERIAL.print(rawAccel[0], 4);
-        DEBUG_SERIAL.print(", ");
-        DEBUG_SERIAL.println(rawAccel[2], 4);
+        // DEBUG_SERIAL.print(rawAccel[1], 4);
+        // DEBUG_SERIAL.print(", ");
+        // DEBUG_SERIAL.print(rawAccel[0], 4);
+        // DEBUG_SERIAL.print(", ");
+        // DEBUG_SERIAL.println(rawAccel[2], 4);
     }
 }
-
-// void Telemetry::handleReceive(StateEstimation& state) {
-//     static uint8_t rxBuffer[256];
-//     static size_t rxIndex = 0;
-
-//     while (TELEMETRY_SERIAL.available()) {
-//         uint8_t byte = TELEMETRY_SERIAL.read();
-//         rxBuffer[rxIndex++] = byte;
-
-//         // Wait for at least header
-//         if (rxIndex >= 4) {
-//             uint16_t delim = (rxBuffer[0] << 8) | rxBuffer[1];
-//             uint8_t type = rxBuffer[2];
-//             uint8_t len = rxBuffer[3];
-
-//             // Check start delimiter
-//             if (delim != RECV_START_DELIM) {
-//                 // Shift buffer left by one
-//                 memmove(rxBuffer, rxBuffer + 1, --rxIndex);
-//                 continue;
-//             }
-
-//             // Wait for full packet
-//             if (rxIndex < 4 + len + 4) continue;
-
-//             // CRC check
-//             uint32_t receivedCrc;
-//             memcpy(&receivedCrc, rxBuffer + 4 + len, 4);
-//             uint32_t calcCrc = crc32(rxBuffer, 4 + len);
-
-//             if (receivedCrc == calcCrc) {
-//                 // Valid packet
-//                 if (type == PACKET_COMMAND) {
-//                     // Extract first 4 bytes of payload as command ID
-//                     if (len >= 4) {
-//                         uint32_t cmdId;
-//                         memcpy(&cmdId, rxBuffer + 4, 4);
-//                         switch (cmdId) {
-//                             case 0xAAAAAAAA: // Arm command
-//                                     state.setVehicleState(1); 
-//                                 break;
-//                             case 0xDDDDDDDD: // Disarm command
-//                                     state.setVehicleState(0);
-//                                 break;
-//                             default:
-//                                 // Unknown command
-//                                 break;
-//                         }
-//                     }
-//                 } else if (type == PACKET_TELEMETRY) {
-//                     // Handle telemetry
-//                 }
-//             }
-//             // Remove processed packet from buffer
-//             size_t packetSize = 4 + len + 4;
-//             memmove(rxBuffer, rxBuffer + packetSize, rxIndex - packetSize);
-//             rxIndex -= packetSize;
-//         }
-//     }
-// }
-
-// uint32_t Telemetry::crc32(const uint8_t* data, size_t length) {
-//     uint32_t crc = 0xFFFFFFFF;
-//     for (size_t i = 0; i < length; ++i) {
-//         crc ^= data[i];
-//         for (int j = 0; j < 8; ++j) {
-//             if (crc & 1)
-//                 crc = (crc >> 1) ^ 0xEDB88320;
-//             else
-//                 crc >>= 1;
-//         }
-//     }
-//     return ~crc;
-// }

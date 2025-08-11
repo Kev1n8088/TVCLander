@@ -16,6 +16,7 @@ private:
 public:
     PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax);
     void compute(float setpoint, float measuredValue, float derivative, bool useExternalDerivative = true);
+    void changeKs(float Kp, float Ki, float Kd);
     float getOutput();
 
 };

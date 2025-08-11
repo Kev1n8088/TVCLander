@@ -20,7 +20,12 @@ StateEstimation::StateEstimation()
     : IMU0(IMU0_RST_PIN), // Initialize SCH1 with the reset pin
       IMU1(SPI, IMU1_CS_PIN), // Initialize ICM456xx with SPI and CS pin
       bmp(),
-      lis2mdl(12345)
+      lis2mdl(12345), 
+      PitchPID(0.9,0,-0.3,10000,0.5),
+        YawPID(0.9,0,-0.3,10000,0.5),
+        RollPID(0.9,0,-0.3,10000,0.5),
+        YPositionPID(0.5,0,-0.1,10000,0.5),
+        ZPositionPID(0.5,0,-0.1,10000,0.5)
 {
     SPI.begin();
     resetVariables();
@@ -309,22 +314,45 @@ void StateEstimation::estimateState(){
         
 }
 
+
+/**
+ * @brief PID control loop for attitude and position control.
+ */
+void StateEstimation::PIDLoop(){
+    YPositionPID.compute(Y_TARGET, worldPosition[1], worldVelocity[1], true);
+    ZPositionPID.compute(X_TARGET, worldPosition[2], worldVelocity[2], true);
+
+    attitudeSetpoint[0] = YPositionPID.getOutput(); // Pitch
+    attitudeSetpoint[1] = ZPositionPID.getOutput(); // Yaw
+
+    PitchPID.compute(attitudeSetpoint[1], getEulerAngle()[1], 0, false);
+    YawPID.compute(attitudeSetpoint[0], getEulerAngle()[2], 0, false);
+
+    RollPID.compute(0, gyroRemovedBias[2], 0, false);
+
+}
+
+/** */
+void StateEstimation::actuate(){
+    
+}
+
 /**
  * @brief Reads IMU0 sensor data and converts it to usable format.
  */
 void StateEstimation::readIMU0(){
     IMU0.SCH1_getData(&rawIMU0Data);
     IMU0.SCH1_convert_data(&rawIMU0Data, &resultIMU0Data);
-    // if(DEBUG_MODE){
-    //     DEBUG_SERIAL.print("IMU0 Data: ");
-    //     DEBUG_SERIAL.print("Rate2: ");
-    //     DEBUG_SERIAL.print(resultIMU0Data.Rate1[0], 4);
-    //     DEBUG_SERIAL.print(", ");
-    //     DEBUG_SERIAL.print(resultIMU0Data.Rate1[1], 4);
-    //     DEBUG_SERIAL.print(", ");
-    //     DEBUG_SERIAL.print(resultIMU0Data.Rate1[2], 4);
-    //     DEBUG_SERIAL.println();
-    // }
+
+    gyroRemovedBias[0] = radians(resultIMU0Data.Rate1[2]) - gyroBias[0]; // Gyro X in rad/s with bias removed
+    gyroRemovedBias[1] = -(radians(resultIMU0Data.Rate1[0]) - gyroBias[1]); // Gyro Y in rad/s with bias removed
+    gyroRemovedBias[2] = (radians(resultIMU0Data.Rate1[1]) - gyroBias[2]); // Gyro Z in rad/s with bias removed
+
+    //single axis calibrated, maybe will implement 3x3 matrix later
+    accelCalibrated[0] = (resultIMU0Data.Acc1[1] - -0.021470) * 1.001336; // X acceleration in body frame
+    accelCalibrated[1] = (resultIMU0Data.Acc1[0] - -0.008415) * 1.001126; // Y acceleration in body frame
+    accelCalibrated[2] = (resultIMU0Data.Acc1[2] - 0.047871) * 1.000885; // Z acceleration in body frame 
+
 }
 
 //Axes: X axis is UP (Gravity is -X), Y axis is RIGHT, Z axis is BACK (Right hand rule). Matches Falcon9 standard
@@ -341,7 +369,7 @@ void StateEstimation::oriLoop(){
     oriLoopMicros = micros();
     float dtOri = (float)(oriLoopMicros - lastOriUpdate) / 1000000.0f; // Convert to seconds
     lastOriUpdate = oriLoopMicros;
-    ori.update(radians(resultIMU0Data.Rate1[2]) - gyroBias[0], -(radians(resultIMU0Data.Rate1[0]) - gyroBias[1]), (radians(resultIMU0Data.Rate1[1]) - gyroBias[2]), dtOri); 
+    ori.update(gyroRemovedBias[0], gyroRemovedBias[1], gyroRemovedBias[2], dtOri); 
 }
 
 /**
@@ -420,9 +448,9 @@ void StateEstimation::updatePrelaunch(){
         gyroBias[1] += radians(resultIMU0Data.Rate1[0]); // Accumulate gyro bias for Y axis in rad/s
         gyroBias[2] += radians(resultIMU0Data.Rate1[1]); // Accumulate gyro bias for Z axis in rad/s
 
-        accelReading[0] += resultIMU0Data.Acc1[1]; // X acceleration in body frame
-        accelReading[1] += resultIMU0Data.Acc1[0]; // Y acceleration in body frame
-        accelReading[2] += -resultIMU0Data.Acc1[2]; // Z acceleration in body frame
+        accelReading[0] += accelCalibrated[0]; // X acceleration in body frame
+        accelReading[1] += accelCalibrated[1]; // Y acceleration in body frame
+        accelReading[2] += -accelCalibrated[2]; // Z acceleration in body frame
 
         delay(PRELAUNCH_AVERAGE_INTERVAL); // Wait for the specified interval before next sample
     }
@@ -470,7 +498,7 @@ void StateEstimation::setVehicleState(int state){
 
 
 // Returns the Euler angles in radians
-// X: Roll, Y: Pitch, Z: Yaw
+// Yaw pitch roll
 const float* StateEstimation::getEulerAngle(){
     static float euler[3];
     EulerAngles a = ori.toEuler(); // Get Euler angles from orientation quaternion
@@ -515,8 +543,8 @@ void StateEstimation::getGimbalMisalign(){
         float dt = (float)(micros() - lastGimbalMisalignMicros) / 1000000.0f; // Convert to seconds
         lastGimbalMisalignMicros = micros(); // Update last gimbal misalign time
         gimbalForceAccumulator += getThrust() * dt;
-        gimbalMisalignAccumulator[0] += (radians(resultIMU0Data.Rate1[2]) - gyroBias[0]) * dt; // Accumulate gimbal misalign for yaw
-        gimbalMisalignAccumulator[1] += -(radians(resultIMU0Data.Rate1[0]) - gyroBias[1]) * dt;
+        gimbalMisalignAccumulator[0] += gyroRemovedBias[0] * dt; // Accumulate gimbal misalign for yaw
+        gimbalMisalignAccumulator[1] += gyroRemovedBias[1] * dt;
         gimbalMisalignTime += dt;
         float f = gimbalForceAccumulator / gimbalMisalignTime;
 
@@ -533,3 +561,5 @@ void StateEstimation::getGimbalMisalign(){
     }
     
 }
+
+
