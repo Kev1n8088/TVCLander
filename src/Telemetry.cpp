@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <Constants.h>
 #include "StateEstimation.h"
-#include "LINK80.cpp"
+#include "LINK80.h"
 
 EXTMEM uint8_t telemetryBuffer[MAX_DATA_LOGS * BYTES_PER_LOG];
 static uint8_t serialBuffer[32 * 1024];
@@ -80,7 +80,6 @@ void Telemetry::telemetryLoop(StateEstimation& state){
         float servoCommand[2] = {0, 0}; // Placeholder
         float thrust = state.getThrust();
         float reactionWheelSpeed = 0; // Placeholder
-        int vehicleState = state.getVehicleState(); 
         int sensorStatus = state.getSensorStatus();
         int SDGoodVal = SDGood;
 
