@@ -5,7 +5,7 @@ size_t LINK80::packCommandAck(uint8_t command_type, uint8_t command_id, uint8_t*
     uint8_t payload[11];
     size_t offset = 0;
     payload[offset++]  = 0; // Reserved addressing byte
-    payload[offset++]  = command_type + 50; // Ack message type
+    payload[offset++]  = command_type + 100; // Ack message type
     payload[offset++]  = command_id;
 
     packUINT32(payload, offset, vehicle_ms); offset += 4;
