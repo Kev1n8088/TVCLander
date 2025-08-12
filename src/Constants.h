@@ -75,6 +75,7 @@
 #define X_TARGET 0.0f // Target X position in meters for landing
 
 #define GIMBAL_LIMIT_RAD 5.0 * DEG_TO_RAD // 5 degrees in radians
+#define MAX_ATTITIDE_SETPOINT_RAD 0.15
 
 #define PYRO_LOCKOUT_ALT 5.0
 
@@ -83,7 +84,6 @@
 #define GIMBAL_STABILIZATION_TIME 2.5 //s, T+ at which we switch to stabilize mode
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
-
 
 #define WHEEL_MOI 0.000004
 #define MAX_WHEEL_SPEED 400.0f // rad/s

@@ -312,8 +312,8 @@ void StateEstimation::PIDLoop(){
     YPositionPID.compute(Y_TARGET, worldPosition[1], worldVelocity[1], true);
     ZPositionPID.compute(X_TARGET, worldPosition[2], worldVelocity[2], true);
 
-    attitudeSetpoint[0] = YPositionPID.getOutput(); // Yaw
-    attitudeSetpoint[1] = ZPositionPID.getOutput(); // Pitch
+    attitudeSetpoint[0] = min(max(YPositionPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
+    attitudeSetpoint[1] = min(max(ZPositionPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
 
     YawPID.compute(attitudeSetpoint[0], getEulerAngle()[0], 0, false);
     PitchPID.compute(attitudeSetpoint[1], getEulerAngle()[1], 0, false);
