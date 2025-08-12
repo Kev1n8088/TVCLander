@@ -18,6 +18,8 @@ public:
     void compute(float setpoint, float measuredValue, float derivative, bool useExternalDerivative = true);
     void changeKs(float Kp, float Ki, float Kd);
     float getOutput();
+    void clearIntegral() { integral = 0.0; } // Reset integral term
+    void clearDerivative() { lastError = 0.0; } // Reset derivative term
 
 };
 

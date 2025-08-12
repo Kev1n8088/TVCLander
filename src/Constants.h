@@ -41,6 +41,8 @@
 #define ROLL_MINUS SERV5
 #define ROLL_PLUS SERV6
 
+#define ACTUATOR_INTERVAL_US 20000 // Actuation interval in micros
+
 #define LAND_PYRO 32
 #define LAND_CONTINUITY 26
 
@@ -82,6 +84,8 @@
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
 
-#define RECV_START_DELIM 0xAA55
+
+#define WHEEL_MOI 0.000004
+#define MAX_WHEEL_SPEED 400.0f // rad/s
 
 #endif // CONSTANTS_H

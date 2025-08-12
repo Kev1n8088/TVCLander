@@ -26,6 +26,8 @@ private:
     PID PitchPID;
     PID YawPID;
     PID RollPID;
+    PID PitchStabilizationPID;
+    PID YawStabilizationPID;
     PID YPositionPID;
     PID ZPositionPID;
 
@@ -64,7 +66,13 @@ private:
     float gimbalForceAccumulator;
 
     float attitudeSetpoint[2]; // Yaw and Pitch setpoints for gimbal
-    float gimbalCommand[2]; // before transform applied for servo command
+    float angularAccelCommand[2]; // before transform applied for servo command
+
+    float gimbalAngle[2]; // after transform applied for servo command, before mapping
+
+    float wheelSpeed;
+
+    uint64_t lastActuatorMicros;
 
     float thrust;
 
@@ -101,7 +109,6 @@ public:
     int begin();
     float getMass();
     float getPitchYawMMOI(); 
-    float getRollMMOI();
     float getMomentArm();
     float getThrust();
     int getVehicleState() { return vehicleState; }
