@@ -144,6 +144,7 @@ public:
     const float* getGyroBias() const { return gyroBias; }
     const float* getGyroRemovedBias() const { return gyroRemovedBias; }
     const float* getAccelCalibrated() const { return accelCalibrated; }
+    float getLaunchTime() { return launchTime; }
 };
 
 #endif // STATEESTIMATION_H
