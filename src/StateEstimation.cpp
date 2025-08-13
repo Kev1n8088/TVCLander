@@ -384,8 +384,6 @@ void StateEstimation::actuate(){
     gimbalAngle[1] = min(max(gimbalAngle[1], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD
 
     //some code for actuation here - TODO may need sign flips
-    // TODO 
-
     // TODO Check signs
     float servoAngle[2];
     servoAngle[0] = 333.57967 * pow(gimbalAngle[0], 3) + 192.1374 * gimbalAngle[0]; // in degrees
