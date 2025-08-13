@@ -377,14 +377,19 @@ void StateEstimation::actuate(){
     // convert from angular acceleration to gimbal angle
     float modifier = getPitchYawMMOI() / (getThrust() * getMomentArm()); // Modifier to convert angular acceleration to gimbal angle
 
-    gimbalAngle[0] = asin(max(min(gimbalAngle[0] * modifier, 1), -1));
-    gimbalAngle[1] = asin(max(min(gimbalAngle[1] * modifier, 1), -1));
+    gimbalAngle[0] = asin(max(min(gimbalAngle[0] * modifier, 1), -1)) + gimbalMisalign[0];
+    gimbalAngle[1] = asin(max(min(gimbalAngle[1] * modifier, 1), -1)) + gimbalMisalign[1];
 
     gimbalAngle[0] = min(max(gimbalAngle[0], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD
     gimbalAngle[1] = min(max(gimbalAngle[1], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD
 
     //some code for actuation here - TODO may need sign flips
     // TODO 
+
+    // TODO Check signs
+    float servoAngle[2];
+    servoAngle[0] = 333.57967 * pow(gimbalAngle[0], 3) + 192.1374 * gimbalAngle[0]; // in degrees
+    servoAngle[1] = 333.57967 * pow(gimbalAngle[1], 3) + 192.1374 * gimbalAngle[1]; // in degrees 
 
 }
 
