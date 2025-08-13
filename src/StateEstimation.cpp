@@ -26,8 +26,10 @@ StateEstimation::StateEstimation()
         PitchStabilizationPID(8,0,-6,10000,0.5),
         YawStabilizationPID(8,0,-6,10000,0.5),
         RollPID(0.02,0,-0.005,10000,0.5),
-        YPositionPID(0.02,0,-0.1,10000,0.5),
-        ZPositionPID(0.02,0,-0.1,10000,0.5)
+        YAscentPID(0.02,0,-0.01,10000,0.5),
+        ZAscentPID(0.02,0,-0.01,10000,0.5),
+        YDescentPID(0.03,0,-0.08,10000,0.5),
+        ZDescentPID(0.03,0,-0.08,10000,0.5)
 {
     SPI.begin();
     resetVariables();
@@ -54,6 +56,9 @@ void StateEstimation::resetVariables(){
     
     // init variables
     resetLinearVariables();
+
+    timeSinceLaunch = 0.0f; // Time since launch in seconds
+    launchTime = 0.0f; // Launch time in seconds
 
     gimbalMisalign[0] = 0;
     gimbalMisalign[1] = 0;
@@ -308,12 +313,24 @@ void StateEstimation::estimateState(){
  */
 void StateEstimation::PIDLoop(){
     // TODO may need sign flips
+    float projectedLandingPosition[2];
 
-    YPositionPID.compute(Y_TARGET, worldPosition[1], worldVelocity[1], true);
-    ZPositionPID.compute(X_TARGET, worldPosition[2], worldVelocity[2], true);
+    projectedLandingPosition[0] = worldPosition[1] + worldVelocity[1] * (PROJECTED_LANDING_TIME - timeSinceLaunch); // Projected landing position in Y
+    projectedLandingPosition[1] = worldPosition[2] + worldVelocity[2] * (PROJECTED_LANDING_TIME - timeSinceLaunch); // Projected landing position in Z
 
-    attitudeSetpoint[0] = min(max(YPositionPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
-    attitudeSetpoint[1] = min(max(ZPositionPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
+    YDescentPID.compute(Y_TARGET, worldPosition[1], worldVelocity[1], true);
+    ZDescentPID.compute(X_TARGET, worldPosition[2], worldVelocity[2], true);
+
+    YAscentPID.compute(Y_TARGET, projectedLandingPosition[0], worldVelocity[1], true);
+    ZAscentPID.compute(X_TARGET, projectedLandingPosition[1], worldVelocity[2], true);
+
+    if(vehicleState < 5){ // use ascent PID controllers before apogee
+        attitudeSetpoint[0] = min(max(YAscentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
+        attitudeSetpoint[1] = min(max(ZAscentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
+    }else{ // use descent PID controllers after apogee
+        attitudeSetpoint[0] = min(max(YDescentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
+        attitudeSetpoint[1] = min(max(ZDescentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
+    }
 
     YawPID.compute(attitudeSetpoint[0], getEulerAngle()[0], 0, false);
     PitchPID.compute(attitudeSetpoint[1], getEulerAngle()[1], 0, false);
@@ -563,9 +580,6 @@ void StateEstimation::detectApogee(){
         if (vehicleState == 4){
             landingIgnitionAltitude = 0.6 * apogeeAltitude;
             vehicleState = 5;
-
-            YPositionPID.changeKs(0.03, 0, -0.08); //change to landing gains
-            ZPositionPID.changeKs(0.03, 0, -0.08);
         }
     }
 }

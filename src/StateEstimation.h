@@ -28,8 +28,10 @@ private:
     PID RollPID;
     PID PitchStabilizationPID;
     PID YawStabilizationPID;
-    PID YPositionPID;
-    PID ZPositionPID;
+    PID YAscentPID;
+    PID ZAscentPID;
+    PID YDescentPID;
+    PID ZDescentPID;
 
     uint64_t lastStateEstimateMicros; // Last time state estimation was run in microseconds
 

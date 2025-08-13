@@ -84,6 +84,7 @@
 #define GIMBAL_STABILIZATION_TIME 2.5 //s, T+ at which we switch to stabilize mode
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
+#define PROJECTED_LANDING_TIME 10 // seconds, time after launch when we expect to land
 
 #define WHEEL_MOI 0.000004
 #define MAX_WHEEL_SPEED 400.0f // rad/s
