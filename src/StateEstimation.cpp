@@ -359,11 +359,11 @@ void StateEstimation::actuate(){
 
     //seperate controllers instead of changing constants to prevent derivative kick
     if (vehicleState == 4){
-        angularAccelCommand[0] = PitchStabilizationPID.getOutput(); // Pitch angular acceleration command
-        angularAccelCommand[1] = YawStabilizationPID.getOutput(); // Yaw angular acceleration command
+        angularAccelCommand[0] = YawStabilizationPID.getOutput(); // Yaw angular acceleration command
+        angularAccelCommand[1] = PitchStabilizationPID.getOutput(); // Pitch angular acceleration command
     }else{
-        angularAccelCommand[0] = PitchPID.getOutput(); // Pitch angular acceleration command
-        angularAccelCommand[1] = YawPID.getOutput(); // Yaw angular acceleration command
+        angularAccelCommand[0] = YawPID.getOutput(); // Yaw angular acceleration command
+        angularAccelCommand[1] = PitchPID.getOutput(); // Pitch angular acceleration command
     }
     
     // reaction wheel controller
@@ -371,8 +371,8 @@ void StateEstimation::actuate(){
     wheelSpeed = min(max(wheelSpeed, -MAX_WHEEL_SPEED), MAX_WHEEL_SPEED); // Limit wheel speed to max
 
     // roll mixer
-    gimbalAngle[0] = cos(getEulerAngle()[2]) * (angularAccelCommand[0]) - sin(getEulerAngle()[2]) * (angularAccelCommand[1]); // Pitch gimbal angle command
-    gimbalAngle[1] = sin(getEulerAngle()[2]) * (angularAccelCommand[0]) + cos(getEulerAngle()[2]) * (angularAccelCommand[1]); // Yaw gimbal angle command
+    gimbalAngle[0] = sin(getEulerAngle()[2]) * (angularAccelCommand[1]) + cos(getEulerAngle()[2]) * (angularAccelCommand[0]); // Yaw gimbal angle command
+    gimbalAngle[1] = cos(getEulerAngle()[2]) * (angularAccelCommand[1]) - sin(getEulerAngle()[2]) * (angularAccelCommand[0]); // Pitch gimbal angle command
 
     // convert from angular acceleration to gimbal angle
     float modifier = getPitchYawMMOI() / (getThrust() * getMomentArm()); // Modifier to convert angular acceleration to gimbal angle
@@ -386,8 +386,8 @@ void StateEstimation::actuate(){
     //some code for actuation here - TODO may need sign flips
     // TODO Check signs
     float servoAngle[2];
-    servoAngle[0] = 333.57967 * pow(gimbalAngle[0], 3) + 192.1374 * gimbalAngle[0]; // in degrees
-    servoAngle[1] = 333.57967 * pow(gimbalAngle[1], 3) + 192.1374 * gimbalAngle[1]; // in degrees 
+    servoAngle[0] = 333.57967 * pow(gimbalAngle[0], 3) + 192.1374 * gimbalAngle[0]; // in degrees Yaw
+    servoAngle[1] = 333.57967 * pow(gimbalAngle[1], 3) + 192.1374 * gimbalAngle[1]; // in degrees Pitch
 
 }
 
