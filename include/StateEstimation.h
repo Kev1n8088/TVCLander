@@ -14,6 +14,8 @@
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_LIS2MDL.h>
 #include "PID.h"
+#include "GPSHandler.h"
+#include "KalmanFilter.h"
 
 class StateEstimation
 {
@@ -22,6 +24,7 @@ private:
     ICM456xx IMU1;
     Adafruit_BMP3XX bmp;
     Adafruit_LIS2MDL lis2mdl;
+    GPSHandler gps;
 
     PID PitchPID;
     PID YawPID;
@@ -32,6 +35,10 @@ private:
     PID ZAscentPID;
     PID YDescentPID;
     PID ZDescentPID;
+
+    KalmanFilter XPos;
+    KalmanFilter YPos;
+    KalmanFilter ZPos;
 
     uint64_t lastStateEstimateMicros; // Last time state estimation was run in microseconds
 
@@ -57,6 +64,7 @@ private:
     float timeSinceLaunch; // Time since launch in seconds
 
     float accelCalibrated[3]; // Calibrated acceleration in body frame
+    float measuredWorldAccel[3];
     float worldAccel[3]; // Up is X
     float worldVelocity[3]; // World frame velocity in m/s
     float worldPosition[3]; // World frame position in m 
@@ -103,6 +111,7 @@ private:
     void getGimbalMisalign();
     void PIDLoop();
     void actuate();
+    void GPSLoop();
     
 
 public: 
@@ -116,7 +125,7 @@ public:
     int getVehicleState() { return vehicleState; }
     float getTimeSinceLaunch() { return timeSinceLaunch; }
     int getSensorStatus() { return sensorStatus; }
-    void setVehicleState(int state); 
+    int setVehicleState(int state); 
 
     const float* getEulerAngle();
 
@@ -147,6 +156,8 @@ public:
     const float* getGyroRemovedBias() const { return gyroRemovedBias; }
     const float* getAccelCalibrated() const { return accelCalibrated; }
     float getLaunchTime() { return launchTime; }
+
+    GPSInfo& getGPSInfo() { return gps.getGPSInfo(); }
 };
 
 #endif // STATEESTIMATION_H

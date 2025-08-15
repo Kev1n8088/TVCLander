@@ -11,6 +11,7 @@
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_LIS2MDL.h>
+#include "GPSHandler.h"
 
 
 /**
@@ -29,7 +30,11 @@ StateEstimation::StateEstimation()
         YAscentPID(0.02,0,-0.01,10000,0.5),
         ZAscentPID(0.02,0,-0.01,10000,0.5),
         YDescentPID(0.03,0,-0.08,10000,0.5),
-        ZDescentPID(0.03,0,-0.08,10000,0.5)
+        ZDescentPID(0.03,0,-0.08,10000,0.5),
+        gps(),
+        XPos(),
+        YPos(),
+        ZPos()
 {
     SPI.begin();
     resetVariables();
@@ -45,6 +50,7 @@ int StateEstimation::begin(){
     if (beginIMU0() != 0)  failMask |= 0x02;
     if (beginIMU1() != 0)  failMask |= 0x04;
     if (beginMag()  != 0)  failMask |= 0x08;
+    if (gps.begin() != 0)  failMask |= 0x10;
     sensorStatus = failMask; // Store the sensor status in the class variable
     return failMask;
 }
@@ -96,6 +102,7 @@ void StateEstimation::resetLinearVariables(){
 
     // Reset world frame acceleration, velocity, and position
     for (int i = 0; i < 3; i++) {
+        measuredWorldAccel[i] = 0.0f; // Reset measured acceleration in world frame
         worldAccel[i] = 0.0f; // Reset acceleration in world frame
         worldVelocity[i] = 0.0f; // Reset velocity in world frame
         worldPosition[i] = 0.0f; // Reset position in world frame
@@ -256,6 +263,8 @@ void StateEstimation::estimateState(){
         timeSinceLaunch = millis() / 1000.0f - launchTime; // Calculate time since launch in seconds
     }
 
+    gps.gpsLoop(); // Update GPS data
+
     // State machine
     switch (vehicleState){
         case 0: // Disarmed State
@@ -269,7 +278,9 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                GPSLoop();
                 //detectLaunch();
+
             }
             break;
         case 2: // No gimbal command state, characterizing misalign
@@ -277,6 +288,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                GPSLoop();
             }
             // TODO: Lock servos in center position
             if (timeSinceLaunch > MISALIGN_CHARACTERIZATION_TIME){
@@ -288,6 +300,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                GPSLoop();
             }
             // TODO: insert code for updating servos
             if (timeSinceLaunch > GIMBAL_STABILIZATION_TIME){
@@ -299,6 +312,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                GPSLoop();
                 detectApogee();
             }
             // TODO: Insert code for updating servos
@@ -307,6 +321,30 @@ void StateEstimation::estimateState(){
         
 }
 
+
+void StateEstimation::GPSLoop(){
+    if (!gps.dataReady()){
+        return; // If GPS data is not ready, return
+    }
+
+    XPos.updateGPS(gps.getGPSInfo().XYZ.x, -gps.getGPSInfo().pos.velocityDown); // Update X position and velocity from GPS data
+    YPos.updateGPS(gps.getGPSInfo().XYZ.y, gps.getGPSInfo().pos.velocityEast); // Update Y position and velocity from GPS data
+    ZPos.updateGPS(gps.getGPSInfo().XYZ.z, gps.getGPSInfo().pos.velocityNorth); // Update Z position and velocity from GPS data
+
+    // Update world frame position and velocity from GPS data
+    worldPosition[0] = XPos.getPosition(); // Update world frame X position
+    worldPosition[1] = YPos.getPosition(); // Update world frame Y position
+    worldPosition[2] = ZPos.getPosition(); // Update world frame Z position
+
+    worldVelocity[0] = XPos.getVelocity(); // Update world frame X velocity
+    worldVelocity[1] = YPos.getVelocity(); // Update world frame Y velocity
+    worldVelocity[2] = ZPos.getVelocity(); // Update world frame Z velocity
+
+    // Update world frame acceleration from GPS data
+    measuredWorldAccel[0] = XPos.getAcceleration(); // Update world frame X acceleration
+    measuredWorldAccel[1] = YPos.getAcceleration(); // Update world frame Y acceleration
+    measuredWorldAccel[2] = ZPos.getAcceleration(); // Update world frame Z acceleration
+}
 
 /**
  * @brief PID control loop for attitude and position control.
@@ -326,10 +364,10 @@ void StateEstimation::PIDLoop(){
 
     if(vehicleState < 5){ // use ascent PID controllers before apogee
         attitudeSetpoint[0] = min(max(YAscentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
-        attitudeSetpoint[1] = min(max(ZAscentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
+        attitudeSetpoint[1] = -min(max(ZAscentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
     }else{ // use descent PID controllers after apogee
         attitudeSetpoint[0] = min(max(YDescentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
-        attitudeSetpoint[1] = min(max(ZDescentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
+        attitudeSetpoint[1] = -min(max(ZDescentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
     }
 
     YawPID.compute(attitudeSetpoint[0], getEulerAngle()[0], 0, false);
@@ -382,6 +420,10 @@ void StateEstimation::actuate(){
 
     gimbalAngle[0] = min(max(gimbalAngle[0], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD
     gimbalAngle[1] = min(max(gimbalAngle[1], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD
+    // signs CORRECT up to here - note that positive pitch gimbal angle has bottom of gimbal towards +Z axis
+    // positive yaw gimbal angle has bottom of gimbal towards -Y axis. 
+    // Matches up with right hand rule
+
 
     //some code for actuation here - TODO may need sign flips
     // TODO Check signs
@@ -434,27 +476,34 @@ void StateEstimation::accelLoop(){
         lastAccelUpdate = micros();
         return;
     }
-
     
     ori.updateAccel(resultIMU0Data.Acc1[1], resultIMU0Data.Acc1[0], resultIMU0Data.Acc1[2]); // Update the orientation with the measured acceleration in body frame
 
-    worldAccel[0] = ori.worldAccel.b + WORLD_GRAVITY_X; // X acceleration in world frame
-    worldAccel[1] = -ori.worldAccel.c + WORLD_GRAVITY_Y; // Y acceleration in world frame
-    worldAccel[2] = ori.worldAccel.d + WORLD_GRAVITY_Z; // Z acceleration in world frame
+    measuredWorldAccel[0] = ori.worldAccel.b + WORLD_GRAVITY_X; // X acceleration in world frame
+    measuredWorldAccel[1] = -ori.worldAccel.c + WORLD_GRAVITY_Y; // Y acceleration in world frame
+    measuredWorldAccel[2] = ori.worldAccel.d + WORLD_GRAVITY_Z; // Z acceleration in world frame
 
     accelLoopMicros = micros();
     float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
     lastAccelUpdate = accelLoopMicros;
 
-    // Update world velocity and position using simple integration
-    worldVelocity[0] += worldAccel[0] * dtAccel; // Update X velocity in world frame
-    worldVelocity[1] += worldAccel[1] * dtAccel; // Update Y velocity in world frame
-    worldVelocity[2] += worldAccel[2] * dtAccel; // Update Z velocity in world frame
-    worldPosition[0] += worldVelocity[0] * dtAccel; // Update X position in world frame
-    worldPosition[1] += worldVelocity[1] * dtAccel; // Update Y position in world frame
-    worldPosition[2] += worldVelocity[2] * dtAccel; // Update Z position in world frame
-
     thrust = resultIMU0Data.Acc1[1] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
+
+    XPos.updateAccelerometer(measuredWorldAccel[0]);
+    YPos.updateAccelerometer(measuredWorldAccel[1]);
+    ZPos.updateAccelerometer(measuredWorldAccel[2]);
+
+    worldPosition[0] = XPos.getPosition(); // Get X position in world frame
+    worldPosition[1] = YPos.getPosition(); // Get Y position in world frame
+    worldPosition[2] = ZPos.getPosition(); // Get Z position in world frame
+
+    worldVelocity[0] = XPos.getVelocity(); // Get X velocity in world frame
+    worldVelocity[1] = YPos.getVelocity(); // Get Y velocity in world frame
+    worldVelocity[2] = ZPos.getVelocity(); // Get Z velocity in world frame
+
+    worldAccel[0] = XPos.getAcceleration(); // Get X acceleration in world frame
+    worldAccel[1] = YPos.getAcceleration(); // Get Y acceleration in world frame
+    worldAccel[2] = ZPos.getAcceleration(); // Get Z acceleration in world frame
 }
 
 /**
@@ -471,6 +520,7 @@ void StateEstimation::updatePrelaunch(){
     if (millis() - preLaunchLastUpdateMillis < PRELAUNCH_UPDATE_INTERVAL) { // If not enough time has passed since last update, return
         return;
     }
+
 
     preLaunchLastUpdateMillis = millis(); // Update last update time
 
@@ -524,20 +574,41 @@ void StateEstimation::updatePrelaunch(){
     ori.orientation = expectedGravity.rotation_between_vectors(actualAccel); // Compute the orientation quaternion by rotating expected gravity vector to actual acceleration vector
     //ori.zeroRoll();
     ori.orientation = ori.orientation.normalize(); // Normalize the orientation quaternion
+    
+    gps.setCurrentAsHome(); // Set current GPS position as home position
 }
 
-// Set the vehicle state.
-void StateEstimation::setVehicleState(int state){
+/**
+ * @brief Sets the vehicle state.
+ * Error codes:
+ * -1 Invalid state
+ * -2 Invalid transition
+ * -3 Bad sensors
+ */
+int StateEstimation::setVehicleState(int state){
     // 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
     if (state >= -1 && state <= 7) {
         switch (state){
             case 1: // armed process
                 if (vehicleState == 0){
-                    vehicleState = 1;
+                    if(sensorStatus == 0 && gps.getGPSInfo().fixType > 3){ // allow arm with RTKfix or RTK float, and all sensors functioning
+                        vehicleState = 1;
+                        XPos.begin(); // Initialize X Kalman
+                        YPos.begin(); // Initialize Y Kalman
+                        ZPos.begin(); // Initialize Z Kalman
+
+                    } else {
+                        return -3; // Cannot arm if sensors are not all functioning
+                    }
+                }else{
+                    return -2;
                 }
                 break;
             case 0: //disarm process
                 resetVariables(); // Reset all variables to initial conditions
+                XPos.reset();
+                YPos.reset();
+                ZPos.reset();
                 vehicleState = 0; // Set vehicle state to disarmed
                 break;
             default:
@@ -545,8 +616,9 @@ void StateEstimation::setVehicleState(int state){
                 break;
         }
     } else {
-        //Serial.println("Invalid vehicle state");
+        return -1; // Invalid state
     }
+    return 0;
 }
 
 
