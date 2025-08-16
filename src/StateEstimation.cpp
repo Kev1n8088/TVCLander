@@ -303,6 +303,7 @@ void StateEstimation::estimateState(){
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
+                getGimbalMisalign();
                 actuateServos(false); // center servos without actuating them
                 actuateWheel(); 
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
@@ -380,8 +381,10 @@ void StateEstimation::estimateState(){
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos(false); // center servos without actuating them
                 actuateWheel(); 
+                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             break;
+        // Servo test cases - no wheel
         case 65: // Stabilization test state (no use of positional PID)
         case 66:// Positional PID test state (uses descent positional PID)
         case 67:// Predictive Positional PID test state (uses ascent positional PID)
@@ -392,7 +395,20 @@ void StateEstimation::estimateState(){
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                actuateWheel(); 
+                RollMotor.stop(); // Stop roll motor
+                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
+            }
+            break;
+        case 68: //misalignment test - operation: rotate the vehicle and the gimbal should move in the opposite direction 
+            if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
+                readIMU0(); // Read IMU data only if DRY
+                oriLoop(); // Call orientation loop to update orientation
+                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                GPSLoop();
+                getGimbalMisalign();
+                actuateServos(true, false); // Actuate but do not include PID outputs
+                RollMotor.stop(); // Stop roll motor
+                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             break;
     }
@@ -463,8 +479,10 @@ void StateEstimation::PIDLoop(){
 
 /** 
  * @brief Actuates servos based on PID outputs and gimbal misalignment.
+ * @param actuate If true, actuate servos; if false, center servos.
+ * @param includePID If true, include PID outputs in actuation; if false, do not include PID outputs and only has gimbal misalignment.
  */
-void StateEstimation::actuateServos(bool actuate){
+void StateEstimation::actuateServos(bool actuate, bool includePID){
     if(lastActuatorMicros == 0) { // If this is the first update, set lastActuatorMicros to current time
         lastActuatorMicros = micros();
         return;
@@ -496,8 +514,15 @@ void StateEstimation::actuateServos(bool actuate){
     // convert from angular acceleration to gimbal angle
     float modifier = getPitchYawMMOI() / (getThrust() * getMomentArm()); // Modifier to convert angular acceleration to gimbal angle
 
-    gimbalAngle[0] = asin(max(min(gimbalAngle[0] * modifier, 1), -1)) + gimbalMisalign[0];
-    gimbalAngle[1] = asin(max(min(gimbalAngle[1] * modifier, 1), -1)) + gimbalMisalign[1];
+    gimbalAngle[0] = asin(max(min(gimbalAngle[0] * modifier, 1), -1));
+    gimbalAngle[1] = asin(max(min(gimbalAngle[1] * modifier, 1), -1));
+
+    if(includePID == false){ // If includePID is false, do not include PID outputs and only has gimbal misalignment
+        gimbalAngle[0] = 0;
+        gimbalAngle[1] = 0;
+    }
+    gimbalAngle[0] += gimbalMisalign[0]; // Add gimbal misalignment to yaw gimbal angle command
+    gimbalAngle[1] += gimbalMisalign[1]; // Add gimbal misalignment to pitch gimbal angle command
 
     gimbalAngle[0] = min(max(gimbalAngle[0], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD
     gimbalAngle[1] = min(max(gimbalAngle[1], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD

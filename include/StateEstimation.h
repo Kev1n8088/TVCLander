@@ -119,7 +119,7 @@ private:
     void detectApogee();
     void getGimbalMisalign();
     void PIDLoop();
-    void actuateServos(bool actuate = true); // Actuate servos based on attitude setpoints
+    void actuateServos(bool actuate = true, bool includePID = true); // Actuate servos based on attitude setpoints
     void actuateWheel();
     void GPSLoop();
     void firePyroWhenReady();
