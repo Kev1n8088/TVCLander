@@ -16,6 +16,8 @@
 #include "PID.h"
 #include "GPSHandler.h"
 #include "KalmanFilter.h"
+#include <Servo.h>
+#include "MotorController.h"
 
 class StateEstimation
 {
@@ -39,6 +41,12 @@ private:
     KalmanFilter XPos;
     KalmanFilter YPos;
     KalmanFilter ZPos;
+
+    
+    Servo PitchServo;
+    Servo YawServo;
+
+    MotorController RollMotor; // Motor controller for roll motor
 
     uint64_t lastStateEstimateMicros; // Last time state estimation was run in microseconds
 
@@ -83,6 +91,7 @@ private:
     float wheelSpeed;
 
     uint64_t lastActuatorMicros;
+    uint64_t lastWheelMicros;
 
     float thrust;
 
@@ -110,8 +119,10 @@ private:
     void detectApogee();
     void getGimbalMisalign();
     void PIDLoop();
-    void actuate();
+    void actuateServos(bool actuate = true); // Actuate servos based on attitude setpoints
+    void actuateWheel();
     void GPSLoop();
+    void firePyroWhenReady();
     
 
 public: 
@@ -126,6 +137,8 @@ public:
     float getTimeSinceLaunch() { return timeSinceLaunch; }
     int getSensorStatus() { return sensorStatus; }
     int setVehicleState(int state); 
+
+    bool getPyroCont();
 
     const float* getEulerAngle();
 

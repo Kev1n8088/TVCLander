@@ -38,8 +38,8 @@
 #define PITCH_SERVO SRV3
 
 // Roll motor controller pins
-#define ROLL_MINUS SERV5
-#define ROLL_PLUS SERV6
+#define ROLL_MINUS SRV5
+#define ROLL_PLUS SRV6
 
 #define ACTUATOR_INTERVAL_US 20000 // Actuation interval in micros
 
