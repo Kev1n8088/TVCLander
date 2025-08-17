@@ -52,9 +52,11 @@ int GPSHandler::begin() {
 
 void GPSHandler::gpsLoop(){
     if(lastUpdateMillis + GPS_POLLING_INTERVAL > millis()){
+        //DEBUG_SERIAL.println("Skipping GPS update");
         return; // Skip if not enough time has passed since last update
     }
     lastUpdateMillis = millis(); // Update last update time
+    uint64_t start = millis();
     gps.update(); // Update GPS data
     if(gps.isNewSnapshotAvailable()){
         DRY = true; // Set DRY flag to indicate new data is available   
@@ -83,7 +85,11 @@ void GPSHandler::gpsLoop(){
         gpsInfo.error3D = gps.get3DError(); // Get 3D error
 
         gpsInfo.rtcmAge = millis() - lastRTCMMillis; // Calculate age of RTCM correction data
-    }
+    }   
+
+    // DEBUG_SERIAL.print("GPS update took ");
+    // DEBUG_SERIAL.print(millis() - start);
+    // DEBUG_SERIAL.println(" ms");
 
 }
 

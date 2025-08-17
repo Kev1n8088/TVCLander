@@ -189,6 +189,7 @@ public:
     const float* getAccelUncertainty() const { return accelUncertainty; } // Returns the acceleration uncertainty in world frame
     const float* getVelocityUncertainty() const { return velocityUncertainty; } // Returns the velocity uncertainty in world frame
     const float* getPositionUncertainty() const { return positionUncertainty; } // Returns the position uncertainty in world frame
+    void forceVehicleState(int state) { vehicleState = state; } // For testing only, forces vehicle state without checks
 
     GPSInfo& getGPSInfo() { return gps.getGPSInfo(); }
     GPSHandler& getGPSHandler() { return gps; }

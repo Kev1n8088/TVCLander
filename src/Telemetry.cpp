@@ -270,7 +270,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
     TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
 
     if (DEBUG_MODE){
-        DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
+        //DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
     }
 }
 

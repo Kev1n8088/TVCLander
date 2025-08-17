@@ -672,11 +672,13 @@ void StateEstimation::accelLoop(){
         return;
     }
     
-    ori.updateAccel(accelCalibrated[0], accelCalibrated[1], accelCalibrated[2]); // Update the orientation with the measured acceleration in body frame
+    ori.updateAccel(accelCalibrated[0], -accelCalibrated[1], accelCalibrated[2]); // Update the orientation with the measured acceleration in body frame
 
     measuredWorldAccel[0] = ori.worldAccel.b + WORLD_GRAVITY_X; // X acceleration in world frame
-    measuredWorldAccel[1] = -ori.worldAccel.c + WORLD_GRAVITY_Y; // Y acceleration in world frame
+    measuredWorldAccel[1] = ori.worldAccel.c + WORLD_GRAVITY_Y; // Y acceleration in world frame
     measuredWorldAccel[2] = ori.worldAccel.d + WORLD_GRAVITY_Z; // Z acceleration in world frame
+
+
 
     accelLoopMicros = micros();
     float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
@@ -784,7 +786,8 @@ void StateEstimation::updatePrelaunch(){
     ori.orientation = expectedGravity.rotation_between_vectors(actualAccel); // Compute the orientation quaternion by rotating expected gravity vector to actual acceleration vector
     //ori.zeroRoll();
     ori.orientation = ori.orientation.normalize(); // Normalize the orientation quaternion
-    
+
+    Quaternion test = ori.orientation.rotate(Quaternion(0, -1, 0, 0)); // Test
     gps.setCurrentAsHome(); // Set current GPS position as home position
 }
 
