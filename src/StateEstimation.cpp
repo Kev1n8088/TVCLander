@@ -27,15 +27,13 @@ StateEstimation::StateEstimation()
       bmp(),
       lis2mdl(12345), 
       gps(),
-      PitchPID(8,0,-4,10000,0.5),
-        YawPID(8,0,-4,10000,0.5),
-        RollPID(0.02,0,-0.005,10000,0.5),
-        PitchStabilizationPID(8,0,-6,10000,0.5),
-        YawStabilizationPID(8,0,-6,10000,0.5),
-        YAscentPID(0.02,0,-0.01,10000,0.5),
-        ZAscentPID(0.02,0,-0.01,10000,0.5),
-        YDescentPID(0.03,0,-0.08,10000,0.5),
-        ZDescentPID(0.03,0,-0.08,10000,0.5),
+      PitchPID(12,0,6,10000,0),
+        YawPID(12,0,6,10000,0),
+        RollPID(0.02,0,0.005,10000,0.5),
+        PitchStabilizationPID(12,0,6,10000,0),
+        YawStabilizationPID(12,0,6,10000,0),
+        YPID(0.3,0.0001,0.2,10000,0.01),
+        ZPID(0.3,0.0001,0.2,10000,0.01),
         XPos(),
         YPos(),
         ZPos(),
@@ -70,6 +68,10 @@ int StateEstimation::begin(){
  * @brief Resets all state estimation variables to initial conditions.
  */
 void StateEstimation::resetVariables(){
+
+    expectedGravity = Quaternion(-WORLD_GRAVITY_X, -WORLD_GRAVITY_Y, -WORLD_GRAVITY_Z);
+    actualAccel = Quaternion(0, 0, 0,0 ); // Reset actual acceleration vector in body frame to zero
+    GPSLocation = Quaternion(0, 0.2, 0, 0); 
     
     // init variables
     resetLinearVariables();
@@ -113,8 +115,8 @@ void StateEstimation::resetLinearVariables(){
     apogeeAltitude = 0;
     landingIgnitionAltitude = 0;
 
-    projectedLandingPosition[0] = 0.0f; // Projected landing position Y
-    projectedLandingPosition[1] = 0.0f; // Projected landing position Z
+    positionSetpoint[0] = 0.0f; // Projected landing position Y
+    positionSetpoint[1] = 0.0f; // Projected landing position Z
 
     // Reset world frame acceleration, velocity, and position
     for (int i = 0; i < 3; i++) {
@@ -153,9 +155,9 @@ float StateEstimation::getMomentArm(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return 0.5f;
+        return 0.05f;
     }else{
-        return 0.7f;
+        return 0.07f;
     }
 }
 
@@ -399,8 +401,8 @@ void StateEstimation::estimateState(){
             break;
         // Servo test cases - no wheel
         case 65: // Stabilization test state (no use of positional PID)
-        case 66:// Positional PID test state (uses descent positional PID)
-        case 67:// Predictive Positional PID test state (uses ascent positional PID)
+        case 66:// Positional PID test state (setpoint 0)
+        case 67:// Predictive Positional PID test state (setpoint follows trajectory)
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
@@ -436,9 +438,23 @@ void StateEstimation::GPSLoop(){
         return; // If GPS data is not ready, return
     }
 
-    XPos.updateGPS(gps.getGPSInfo().xyz.x, -gps.getGPSInfo().pos.velocityDown); // Update X position and velocity from GPS data
-    YPos.updateGPS(gps.getGPSInfo().xyz.y, gps.getGPSInfo().pos.velocityEast); // Update Y position and velocity from GPS data
-    ZPos.updateGPS(gps.getGPSInfo().xyz.z, gps.getGPSInfo().pos.velocityNorth); // Update Z position and velocity from GPS data
+    // Update GPS data
+    worldGPSLocation = ori.orientation.rotate(GPSLocation); // Rotate GPS location vector to body frame
+    adjustedGPSPosition[0] = gps.getGPSInfo().xyz.x - worldGPSLocation.b;
+    adjustedGPSPosition[1] = gps.getGPSInfo().xyz.y - worldGPSLocation.c;
+    adjustedGPSPosition[2] = gps.getGPSInfo().xyz.z - worldGPSLocation.d; // Adjust GPS position for lever arm and orientation
+
+    GPSVelocityBody = Quaternion(0, gyroRemovedBias[2], gyroRemovedBias[1], gyroRemovedBias[0]) * GPSLocation; // Compute cross product of GPS location and gyro removed bias to get velocity in body frame
+    GPSVelocityBody.a = 0; // Scalar part zero to ensure pure vector quaternion
+    GPSVelocityWorld = ori.orientation.rotate(GPSVelocityBody); // Rotate GPS velocity vector to world frame
+
+    adjustedGPSVelocity[0] = (-gps.getGPSInfo().pos.velocityDown) - GPSVelocityWorld.b; // Adjust GPS velocity for lever arm and orientation
+    adjustedGPSVelocity[1] = gps.getGPSInfo().pos.velocityEast - GPSVelocityWorld.c; // Adjust GPS velocity for lever arm and orientation
+    adjustedGPSVelocity[2] = gps.getGPSInfo().pos.velocityNorth - GPSVelocityWorld.d; // Adjust GPS velocity for lever arm and orientation
+
+    XPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[0]); // Update X position and velocity from GPS data
+    YPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Y position and velocity from GPS data
+    ZPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Z position and velocity from GPS data
 
     // Update world frame position and velocity from GPS data
     worldPosition[0] = XPos.getPosition(); // Update world frame X position
@@ -470,28 +486,65 @@ void StateEstimation::GPSLoop(){
     velocityUncertainty[2] = ZPos.getVelocityUncertainty(); // Update Z velocity uncertainty
 }
 
+
+
+/**
+ * @brief Computes the current trajectory setpoint according to the target and current time
+ */
+float StateEstimation::calculateTrajectory(float target, float time){
+    if (time <= 0) {
+        return 0;
+    }
+
+    if(time >= T_END){
+        return target; 
+    }
+
+    float v_max = target / (0.5 * T_ACCEL + T_COAST + 0.5 * T_DECEL); // Maximum velocity to reach target in time
+
+    if(time <= T_ACCEL){
+        //accel phase
+        float phaseProgress = time / T_ACCEL; // Progress in acceleration phase
+        float velocityIntegral = v_max * 0.5 * (phaseProgress - sin(PI * phaseProgress) / PI); // Integral of velocity over acceleration phase
+        return velocityIntegral * T_ACCEL;
+    }else if (time <= T_ACCEL + T_COAST){
+        float dAccel = v_max * T_ACCEL * 0.5;
+        float dCoast = v_max * (time - T_ACCEL); // Distance traveled during coast phase
+        return dAccel + dCoast; // Total distance is sum of acceleration and coast distances
+    }else{
+        //decel phase
+        float dAccel = v_max * T_ACCEL * 0.5;
+        float dCoast = v_max * (time - T_ACCEL); // Distance traveled during coast phase
+
+        float tDecelCurrent = time - (T_ACCEL + T_COAST); // Time in deceleration phase
+        float phaseProgress = tDecelCurrent / T_DECEL; // Progress in deceleration phase
+
+        float velocityIntegral = v_max * 0.5 * (phaseProgress + sin(PI * phaseProgress) / PI); // Integral of velocity over deceleration phases
+        float dDecel = velocityIntegral * T_DECEL; // Distance traveled during deceleration phase
+        return dAccel + dCoast + dDecel; // Total distance is sum of acceleration, coast, and deceleration distances
+    }
+}
+
 /**
  * @brief PID control loop for attitude and position control.
  */
 void StateEstimation::PIDLoop(){
     // TODO may need sign flips
 
-    projectedLandingPosition[0] = worldPosition[1] + worldVelocity[1] * (PROJECTED_LANDING_TIME - timeSinceLaunch); // Projected landing position in Y
-    projectedLandingPosition[1] = worldPosition[2] + worldVelocity[2] * (PROJECTED_LANDING_TIME - timeSinceLaunch); // Projected landing position in Z
+    positionSetpoint[0] = calculateTrajectory(Y_TARGET, timeSinceLaunch); // Calculate Y position setpoint based on trajectory
+    positionSetpoint[1] = calculateTrajectory(Z_TARGET, timeSinceLaunch); // Calculate Z position setpoint based on trajectory
 
-    YDescentPID.compute(Y_TARGET, worldPosition[1], worldVelocity[1], true);
-    ZDescentPID.compute(Z_TARGET, worldPosition[2], worldVelocity[2], true);
-
-    YAscentPID.compute(Y_TARGET, projectedLandingPosition[0], worldVelocity[1], true);
-    ZAscentPID.compute(Z_TARGET, projectedLandingPosition[1], worldVelocity[2], true);
-
-    if(vehicleState < 5 || vehicleState == 67){ // use ascent PID controllers before apogee and in predictive PID test state
-        attitudeSetpoint[0] = min(max(YAscentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
-        attitudeSetpoint[1] = -min(max(ZAscentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
-    }else{ // use descent PID controllers after apogee
-        attitudeSetpoint[0] = min(max(YDescentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
-        attitudeSetpoint[1] = -min(max(ZDescentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
+    if(vehicleState == 66){
+        // In stabilization test state, set position setpoints to zero
+        positionSetpoint[0] = 0.0f; // Y position setpoint
+        positionSetpoint[1] = 0.0f; // Z position setpoint
     }
+
+    YPID.compute(positionSetpoint[0], worldPosition[1], 0, false);
+    ZPID.compute(positionSetpoint[1], worldPosition[2], 0, false);
+
+    attitudeSetpoint[0] = min(max(YPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
+    attitudeSetpoint[1] = -min(max(ZPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
 
     YawPID.compute(attitudeSetpoint[0], getEulerAngle()[0], 0, false);
     PitchPID.compute(attitudeSetpoint[1], getEulerAngle()[1], 0, false);
@@ -747,7 +800,6 @@ void StateEstimation::updatePrelaunch(){
     accelReading[1] = 0.0f; // Reset Y acceleration in body frame
     accelReading[2] = 0.0f; // Reset Z acceleration in body frame
 
-    Quaternion expectedGravity = Quaternion(-WORLD_GRAVITY_X, -WORLD_GRAVITY_Y, -WORLD_GRAVITY_Z); // Expected gravity vector as experienced by accelerometer
     expectedGravity = expectedGravity.normalize();
 
     for(int i = 0; i < PRELAUNCH_AVERAGE_COUNT; i++){
@@ -780,14 +832,13 @@ void StateEstimation::updatePrelaunch(){
     //accelReading[0] /= PRELAUNCH_AVERAGE_COUNT; // Average X acceleration in body frame
     //accelReading[1] /= PRELAUNCH_AVERAGE_COUNT; // Average Y acceleration in body frame
     //accelReading[2] /= PRELAUNCH_AVERAGE_COUNT; // Average Z acceleration in body frame
-    Quaternion actualAccel = Quaternion(accelReading[0], accelReading[1], accelReading[2]); // Create quaternion from acceleration readings in body frame
+    actualAccel = Quaternion(accelReading[0], accelReading[1], accelReading[2]); // Create quaternion from acceleration readings in body frame
     actualAccel = actualAccel.normalize(); // Normalize the quaternion to get unit vector
 
     ori.orientation = expectedGravity.rotation_between_vectors(actualAccel); // Compute the orientation quaternion by rotating expected gravity vector to actual acceleration vector
     //ori.zeroRoll();
     ori.orientation = ori.orientation.normalize(); // Normalize the orientation quaternion
 
-    Quaternion test = ori.orientation.rotate(Quaternion(0, -1, 0, 0)); // Test
     gps.setCurrentAsHome(); // Set current GPS position as home position
 }
 
@@ -873,6 +924,7 @@ void StateEstimation::detectApogee(){
         if (vehicleState == 4){
             landingIgnitionAltitude = 0.6 * apogeeAltitude;
             vehicleState = 5;
+            
         }
     }
 }

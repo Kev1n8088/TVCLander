@@ -41,7 +41,7 @@ void setup() {
 
   DEBUG_SERIAL.println(StateEstimate.begin()); // Initialize state estimation
   TelemetrySystem.begin(); // Initialize telemetry system
-  StateEstimate.forceVehicleState(1); // Set initial vehicle state to disarmed
+  //StateEstimate.forceVehicleState(1); // Set initial vehicle state to disarmed
   DEBUG_SERIAL.println("Setup complete1");
 
 }

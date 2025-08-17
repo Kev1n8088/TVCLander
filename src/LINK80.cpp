@@ -108,10 +108,16 @@ size_t LINK80::packGPSData(const GPSData& gps, uint8_t* p) {
     packFloat(payloadBuffer, offset, gps.latHome); offset += 4;
     packFloat(payloadBuffer, offset, gps.lonHome); offset += 4;
     packFloat(payloadBuffer, offset, gps.altHome); offset += 4;
+    packFloat(payloadBuffer, offset, gps.downVel); offset += 4;
+    packFloat(payloadBuffer, offset, gps.eastVel); offset += 4;
+    packFloat(payloadBuffer, offset, gps.northVel); offset += 4;
+    packFloat(payloadBuffer, offset, gps.relX); offset += 4;
+    packFloat(payloadBuffer, offset, gps.relY); offset += 4;
+    packFloat(payloadBuffer, offset, gps.relZ); offset += 4;
     packUINT32(payloadBuffer, offset, gps.vehicle_ms); offset += 4;
     packUINT32(payloadBuffer, offset, gps.down_count);
 
-    size_t payload_size = 57;
+    size_t payload_size = 81;
     size_t a = packPacket(payloadBuffer, payload_size, packetBuffer, MAX_PACKET_SIZE);
     memcpy(p, packetBuffer, a);
     return a;

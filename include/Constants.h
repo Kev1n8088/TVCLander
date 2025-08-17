@@ -84,7 +84,6 @@
 #define GIMBAL_STABILIZATION_TIME 2.5 //s, T+ at which we switch to stabilize mode
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
-#define PROJECTED_LANDING_TIME 10 // seconds, time after launch when we expect to land
 
 #define WHEEL_MOI 0.000004
 #define MAX_WHEEL_SPEED 400.0f // rad/s
@@ -96,6 +95,11 @@
 #define VBAT_SENSE_PIN A13
 #define VBAT_DIVIDER 4.214f // Voltage divider ratio for battery voltage sensing
 
+
+#define T_ACCEL 1.5
+#define T_DECEL 2.0
+#define T_END 8.5
+#define T_COAST (T_END - T_ACCEL - T_DECEL) // Time spent coasting after acceleration and deceleration phases
 
 #endif // CONSTANTS_H
 

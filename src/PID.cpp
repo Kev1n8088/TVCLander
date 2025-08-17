@@ -46,6 +46,8 @@ void PID::compute(float setpoint, float measuredValue, float derivative, bool us
 
     if(!useExternalDerivative){
         derivative = (error - lastError) / (time / 1000000.0); // convert dt to seconds
+    }else{
+        derivative = -derivative ; // Invert derivative, as its derivative of plant rather than derivative of error, for PID control
     }
 
     lastError = error;

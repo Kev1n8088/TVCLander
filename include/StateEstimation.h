@@ -33,15 +33,19 @@ private:
     PID RollPID;
     PID PitchStabilizationPID;
     PID YawStabilizationPID;
-    PID YAscentPID;
-    PID ZAscentPID;
-    PID YDescentPID;
-    PID ZDescentPID;
+    PID YPID;
+    PID ZPID;
 
     KalmanFilter XPos;
     KalmanFilter YPos;
     KalmanFilter ZPos;
 
+    Quaternion expectedGravity;
+    Quaternion actualAccel; // Actual acceleration vector in body frame
+    Quaternion GPSLocation; // GPS location vector in body frame for adjusting for lever effects
+    Quaternion worldGPSLocation;
+    Quaternion GPSVelocityBody;
+    Quaternion GPSVelocityWorld;
 
 
     MotorController RollMotor; // Motor controller for roll motor
@@ -63,7 +67,7 @@ private:
     uint64_t preLaunchLastUpdateMillis; //PRELAUNCH, last time gyro biases/orientation were updated in milliseconds
 
     float gyroBias[3]; // Gyro bias in rad/s
-    float gyroRemovedBias[3]; // Gyro data with bias removed in rad/s
+    float gyroRemovedBias[3]; // Gyro data with bias removed in rad/s. Yaw pitch roll
 
     int vehicleState; // 0 = disarmed, 1 armed, 2 launched characterizing misalign, 3 launched guidance, 4 launched returning to vertical, //5 past apogee, 6 landing burn, 7 landed, -1 abort state;
     float launchTime; // Time of launch in seconds 
@@ -71,6 +75,10 @@ private:
 
     float accelCalibrated[3]; // Calibrated acceleration in body frame
     float measuredWorldAccel[3];
+
+    float adjustedGPSPosition[3]; // Adjusted GPS position in world frame - compensates for lever arm and orientation
+    float adjustedGPSVelocity[3]; // Adjusted GPS velocity in world frame - compensates for lever arm and orientation
+
     float worldAccel[3]; // Up is X
     float worldVelocity[3]; // World frame velocity in m/s
     float worldPosition[3]; // World frame position in m 
@@ -86,7 +94,7 @@ private:
 
     float gimbalAngle[2]; // after transform applied for servo command, before mapping
     
-    float projectedLandingPosition[2];
+    float positionSetpoint[2];
 
     float wheelSpeed;
 
@@ -127,7 +135,7 @@ private:
     void actuateWheel();
     void GPSLoop();
     void firePyroWhenReady();
-    
+    float calculateTrajectory(float target, float time);
 
 public: 
     StateEstimation();
@@ -182,9 +190,11 @@ public:
     const float* getAngularAccelCommand() const { return angularAccelCommand; } // Yaw, pitch
 
     float getWheelSpeed() { return wheelSpeed; } // Returns the current wheel speed in rad/s
-    const float* getProjectedLandingPosition() const { return projectedLandingPosition; } // Returns the projected landing position in Y, Z
+    const float* getPositionSetpoints() const { return positionSetpoint; } // Returns the projected landing position in Y, Z
 
-    const float* getRawRotatedAccel() const {return measuredWorldAccel; } // Returns the raw rotated acceleration in world frame
+    const float* getMeasuredRotatedAccel() const {return measuredWorldAccel; } // Returns the raw rotated acceleration in world frame
+    const float* getAdjustedGPSPosition() const { return adjustedGPSPosition; } // Returns the adjusted GPS position in world frame
+    const float* getAdjustedGPSVelocity() const { return adjustedGPSVelocity; } // Returns the adjusted GPS velocity in world frame
 
     const float* getAccelUncertainty() const { return accelUncertainty; } // Returns the acceleration uncertainty in world frame
     const float* getVelocityUncertainty() const { return velocityUncertainty; } // Returns the velocity uncertainty in world frame

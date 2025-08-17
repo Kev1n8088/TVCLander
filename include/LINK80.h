@@ -69,6 +69,12 @@ public:
         float latHome;
         float lonHome;
         float altHome;
+        float downVel;
+        float eastVel;
+        float northVel;
+        float relX;
+        float relY;
+        float relZ;
         uint32_t vehicle_ms;
         uint32_t down_count;
     };
