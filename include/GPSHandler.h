@@ -24,7 +24,7 @@ typedef struct GPSInfo{
     int fixType; //"No-Fix", "3D-Fix", "DGPS-Fix", "GPS-PPS", "RTK-Fix", "RTK-Flt" 
     positionAndVelocity pos;
     positionAndVelocity home;
-    XYZ XYZ;
+    XYZ xyz;
     int satsInView;
     int satsUsed;
     float pdop;

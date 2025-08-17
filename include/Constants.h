@@ -56,14 +56,14 @@
 
 #define STATE_ESTIMATION_INTERVAL_US 500 // Interval in microseconds for state estimation updates
 
-#define TELEMETRY_BAUD 57600 // Baud rate for telemetry communication
-#define DEBUG_BAUD 57600 // Baud rate for debug communication
+#define TELEMETRY_BAUD 115200 // Baud rate for telemetry communication
+#define DEBUG_BAUD 115200 // Baud rate for debug communication
 #define DEBUG_SERIAL Serial
 #define TELEMETRY_SERIAL Serial1 // Serial port for telemetry communication
 #define DEBUG_MODE 1 // Set to 1 to enable debug mode, 0 to disable
 
 #define DATALOG_INTERVAL 20 // Interval in milliseconds for data logging
-#define TELEMETRY_INTERVAL 100 // Interval in milliseconds for telemetry updates
+#define TELEMETRY_INTERVAL 33 // Interval in milliseconds for telemetry updates
 
 #define FLOATS_PER_LOG (1 + 4 + 3 + 3 + 3 + 3 + 3 + 3 + 2 + 2 + 1 + 1) // 1 time + 4 quat + 3 accel + 3 vel + 3 pos + 3 rawAccel + 3 rawGyro + 3 gyroBias + 2 attSet + 2 servoCmd + 1 thrust + 1 rwSpeed
 #define BYTES_PER_LOG (sizeof(uint32_t) + (FLOATS_PER_LOG * sizeof(float)) + 3 * sizeof(int)) // separator + floats + 2 * int
@@ -72,7 +72,7 @@
 #define LOG_SEPARATOR 0xDEADBEEF
 
 #define Y_TARGET 2.0f // Target Y position in meters for landing
-#define X_TARGET 0.0f // Target X position in meters for landing
+#define Z_TARGET 0.0f // Target X position in meters for landing
 
 #define GIMBAL_LIMIT_RAD 5.0 * DEG_TO_RAD // 5 degrees in radians
 #define MAX_ATTITIDE_SETPOINT_RAD 0.15
@@ -92,6 +92,9 @@
 #define GPS_SERIAL_PORT Serial8
 #define GPS_BAUD_RATE 460800 // Baud rate for GPS module
 #define GPS_POLLING_INTERVAL 20 // Polling interval for GPS data in milliseconds
+
+#define VBAT_SENSE_PIN A13
+#define VBAT_DIVIDER 4.214f // Voltage divider ratio for battery voltage sensing
 
 
 #endif // CONSTANTS_H

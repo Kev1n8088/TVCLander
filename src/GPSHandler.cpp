@@ -1,7 +1,7 @@
 #include "GPSHandler.h"
 
-static uint8_t gpsTXBuffer[32 * 1024];
-static uint8_t gpsRXBuffer[32 * 1024];
+static uint8_t gpsTXBuffer[16 * 1024];
+static uint8_t gpsRXBuffer[16 * 1024];
 
 GPSHandler::GPSHandler() {
     GPS_SERIAL_PORT.begin(GPS_BAUD_RATE); // Initialize GPS serial port with specified baud rate
@@ -59,7 +59,7 @@ void GPSHandler::gpsLoop(){
     if(gps.isNewSnapshotAvailable()){
         DRY = true; // Set DRY flag to indicate new data is available   
         if (DEBUG_MODE) {
-            DEBUG_SERIAL.println("New GPS data available");
+            //DEBUG_SERIAL.println("New GPS data available");
         }
         current.latitude = gps.getLatitude(); // Get current latitude
         current.longitude = gps.getLongitude(); // Get current longitude
@@ -72,7 +72,7 @@ void GPSHandler::gpsLoop(){
         gpsInfo.home = home; // Set home position
         gpsInfo.pos = current; // Set current position
 
-        gpsInfo.XYZ = getDistance(home, current); // Calculate distance from home position
+        gpsInfo.xyz = getDistance(home, current); // Calculate distance from home position
         gpsInfo.satsInView = gps.getSatellitesInViewCount(); // Get number of satellites in view
         gpsInfo.satsUsed = gps.getSatellitesUsedCount(); // Get number of satellites used for fix
 
@@ -89,7 +89,21 @@ void GPSHandler::gpsLoop(){
 
 
 void GPSHandler::setCurrentAsHome() {
+    if (current.latitude == 0.0f && current.longitude == 0.0f && current.altitude == 0.0f) {
+        if (DEBUG_MODE) {
+            //DEBUG_SERIAL.println(gps.getLatitude());
+            DEBUG_SERIAL.println("Current GPS position is invalid, cannot set as home");
+        }
+        return; // Do not set home if current position is invalid
+    }
+    if(gps.getFixQuality() < 4){
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.println("GPS fix quality is insufficient to set home position");
+        }
+        return; // Do not set home if GPS fix quality is insufficient
+    }
     homeAverageCount++;
+
     float alpha = 1.0f / homeAverageCount;
 
     home.latitude      = (1 - alpha) * home.latitude   + alpha * current.latitude;

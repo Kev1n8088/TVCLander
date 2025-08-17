@@ -14,6 +14,10 @@
 #include "GPSHandler.h"
 
 
+    
+Servo PitchServo;
+Servo YawServo;
+
 /**
  * @brief Constructor for StateEstimation. Initializes sensors and SPI.
  */
@@ -22,16 +26,16 @@ StateEstimation::StateEstimation()
       IMU1(SPI, IMU1_CS_PIN), // Initialize ICM456xx with SPI and CS pin
       bmp(),
       lis2mdl(12345), 
+      gps(),
       PitchPID(8,0,-4,10000,0.5),
         YawPID(8,0,-4,10000,0.5),
+        RollPID(0.02,0,-0.005,10000,0.5),
         PitchStabilizationPID(8,0,-6,10000,0.5),
         YawStabilizationPID(8,0,-6,10000,0.5),
-        RollPID(0.02,0,-0.005,10000,0.5),
         YAscentPID(0.02,0,-0.01,10000,0.5),
         ZAscentPID(0.02,0,-0.01,10000,0.5),
         YDescentPID(0.03,0,-0.08,10000,0.5),
         ZDescentPID(0.03,0,-0.08,10000,0.5),
-        gps(),
         XPos(),
         YPos(),
         ZPos(),
@@ -39,8 +43,6 @@ StateEstimation::StateEstimation()
 {
     SPI.begin();
     resetVariables();
-    PitchServo.attach(PITCH_SERVO); // Attach the pitch servo to the specified pin
-    YawServo.attach(YAW_SERVO); // Attach the yaw servo to the specified pin
 }
 
 /**
@@ -51,8 +53,10 @@ int StateEstimation::begin(){
     pinMode(IMU0_DRY_PIN, INPUT); // Set the dry pin for SCH1 as input
     pinMode(LAND_CONTINUITY, INPUT); // Set the land continuity pin as input
     pinMode(LAND_PYRO, OUTPUT); // Set the land pyro pin as output
+    PitchServo.attach(PITCH_SERVO); // Attach the pitch servo to the specified pin
+    YawServo.attach(YAW_SERVO); // Attach the yaw servo to the specified pin
 
-    int failMask = 0;
+    uint8_t failMask = 0;
     if (beginBaro() != 0)  failMask |= 0x01;
     if (beginIMU0() != 0)  failMask |= 0x02;
     if (beginIMU1() != 0)  failMask |= 0x04;
@@ -109,12 +113,21 @@ void StateEstimation::resetLinearVariables(){
     apogeeAltitude = 0;
     landingIgnitionAltitude = 0;
 
+    projectedLandingPosition[0] = 0.0f; // Projected landing position Y
+    projectedLandingPosition[1] = 0.0f; // Projected landing position Z
+
     // Reset world frame acceleration, velocity, and position
     for (int i = 0; i < 3; i++) {
         measuredWorldAccel[i] = 0.0f; // Reset measured acceleration in world frame
         worldAccel[i] = 0.0f; // Reset acceleration in world frame
         worldVelocity[i] = 0.0f; // Reset velocity in world frame
         worldPosition[i] = 0.0f; // Reset position in world frame
+
+        accelCalibrated[i] = 0.0f; // Reset calibrated acceleration in body frame
+        accelUncertainty[i] = 0.0f; // Reset acceleration uncertainty in world frame
+        velocityUncertainty[i] = 0.0f; // Reset velocity uncertainty in world frame
+        positionUncertainty[i] = 0.0f; // Reset position uncertainty in world frame
+
     }
 }
 
@@ -303,7 +316,7 @@ void StateEstimation::estimateState(){
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
-                getGimbalMisalign();
+                computeGimbalMisalign();
                 actuateServos(false); // center servos without actuating them
                 actuateWheel(); 
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
@@ -405,7 +418,7 @@ void StateEstimation::estimateState(){
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
-                getGimbalMisalign();
+                computeGimbalMisalign();
                 actuateServos(true, false); // Actuate but do not include PID outputs
                 RollMotor.stop(); // Stop roll motor
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
@@ -423,9 +436,9 @@ void StateEstimation::GPSLoop(){
         return; // If GPS data is not ready, return
     }
 
-    XPos.updateGPS(gps.getGPSInfo().XYZ.x, -gps.getGPSInfo().pos.velocityDown); // Update X position and velocity from GPS data
-    YPos.updateGPS(gps.getGPSInfo().XYZ.y, gps.getGPSInfo().pos.velocityEast); // Update Y position and velocity from GPS data
-    ZPos.updateGPS(gps.getGPSInfo().XYZ.z, gps.getGPSInfo().pos.velocityNorth); // Update Z position and velocity from GPS data
+    XPos.updateGPS(gps.getGPSInfo().xyz.x, -gps.getGPSInfo().pos.velocityDown); // Update X position and velocity from GPS data
+    YPos.updateGPS(gps.getGPSInfo().xyz.y, gps.getGPSInfo().pos.velocityEast); // Update Y position and velocity from GPS data
+    ZPos.updateGPS(gps.getGPSInfo().xyz.z, gps.getGPSInfo().pos.velocityNorth); // Update Z position and velocity from GPS data
 
     // Update world frame position and velocity from GPS data
     worldPosition[0] = XPos.getPosition(); // Update world frame X position
@@ -440,6 +453,21 @@ void StateEstimation::GPSLoop(){
     measuredWorldAccel[0] = XPos.getAcceleration(); // Update world frame X acceleration
     measuredWorldAccel[1] = YPos.getAcceleration(); // Update world frame Y acceleration
     measuredWorldAccel[2] = ZPos.getAcceleration(); // Update world frame Z acceleration
+
+    // Update accel uncertainties
+    accelUncertainty[0] = XPos.getAccelerationUncertainty(); // Update X acceleration uncertainty
+    accelUncertainty[1] = YPos.getAccelerationUncertainty(); // Update Y acceleration uncertainty
+    accelUncertainty[2] = ZPos.getAccelerationUncertainty(); // Update Z acceleration uncertainty
+
+    // Update position uncertainties
+    positionUncertainty[0] = XPos.getPositionUncertainty(); // Update X position uncertainty
+    positionUncertainty[1] = YPos.getPositionUncertainty(); // Update Y position uncertainty
+    positionUncertainty[2] = ZPos.getPositionUncertainty(); // Update Z position uncertainty
+
+    // Update velocity uncertainties
+    velocityUncertainty[0] = XPos.getVelocityUncertainty(); // Update X velocity uncertainty
+    velocityUncertainty[1] = YPos.getVelocityUncertainty(); // Update Y velocity uncertainty
+    velocityUncertainty[2] = ZPos.getVelocityUncertainty(); // Update Z velocity uncertainty
 }
 
 /**
@@ -447,16 +475,15 @@ void StateEstimation::GPSLoop(){
  */
 void StateEstimation::PIDLoop(){
     // TODO may need sign flips
-    float projectedLandingPosition[2];
 
     projectedLandingPosition[0] = worldPosition[1] + worldVelocity[1] * (PROJECTED_LANDING_TIME - timeSinceLaunch); // Projected landing position in Y
     projectedLandingPosition[1] = worldPosition[2] + worldVelocity[2] * (PROJECTED_LANDING_TIME - timeSinceLaunch); // Projected landing position in Z
 
     YDescentPID.compute(Y_TARGET, worldPosition[1], worldVelocity[1], true);
-    ZDescentPID.compute(X_TARGET, worldPosition[2], worldVelocity[2], true);
+    ZDescentPID.compute(Z_TARGET, worldPosition[2], worldVelocity[2], true);
 
     YAscentPID.compute(Y_TARGET, projectedLandingPosition[0], worldVelocity[1], true);
-    ZAscentPID.compute(X_TARGET, projectedLandingPosition[1], worldVelocity[2], true);
+    ZAscentPID.compute(Z_TARGET, projectedLandingPosition[1], worldVelocity[2], true);
 
     if(vehicleState < 5 || vehicleState == 67){ // use ascent PID controllers before apogee and in predictive PID test state
         attitudeSetpoint[0] = min(max(YAscentPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
@@ -645,7 +672,7 @@ void StateEstimation::accelLoop(){
         return;
     }
     
-    ori.updateAccel(resultIMU0Data.Acc1[1], resultIMU0Data.Acc1[0], resultIMU0Data.Acc1[2]); // Update the orientation with the measured acceleration in body frame
+    ori.updateAccel(accelCalibrated[0], accelCalibrated[1], accelCalibrated[2]); // Update the orientation with the measured acceleration in body frame
 
     measuredWorldAccel[0] = ori.worldAccel.b + WORLD_GRAVITY_X; // X acceleration in world frame
     measuredWorldAccel[1] = -ori.worldAccel.c + WORLD_GRAVITY_Y; // Y acceleration in world frame
@@ -655,7 +682,7 @@ void StateEstimation::accelLoop(){
     float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
     lastAccelUpdate = accelLoopMicros;
 
-    thrust = resultIMU0Data.Acc1[1] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
+    thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
 
     XPos.updateAccelerometer(measuredWorldAccel[0]);
     YPos.updateAccelerometer(measuredWorldAccel[1]);
@@ -672,6 +699,21 @@ void StateEstimation::accelLoop(){
     worldAccel[0] = XPos.getAcceleration(); // Get X acceleration in world frame
     worldAccel[1] = YPos.getAcceleration(); // Get Y acceleration in world frame
     worldAccel[2] = ZPos.getAcceleration(); // Get Z acceleration in world frame
+    
+    // Update accel uncertainties
+    accelUncertainty[0] = XPos.getAccelerationUncertainty(); // Update X acceleration uncertainty
+    accelUncertainty[1] = YPos.getAccelerationUncertainty(); // Update Y acceleration uncertainty
+    accelUncertainty[2] = ZPos.getAccelerationUncertainty(); // Update Z acceleration uncertainty
+
+    // Update position uncertainties
+    positionUncertainty[0] = XPos.getPositionUncertainty(); // Update X position uncertainty
+    positionUncertainty[1] = YPos.getPositionUncertainty(); // Update Y position uncertainty
+    positionUncertainty[2] = ZPos.getPositionUncertainty(); // Update Z position uncertainty
+
+    // Update velocity uncertainties
+    velocityUncertainty[0] = XPos.getVelocityUncertainty(); // Update X velocity uncertainty
+    velocityUncertainty[1] = YPos.getVelocityUncertainty(); // Update Y velocity uncertainty
+    velocityUncertainty[2] = ZPos.getVelocityUncertainty(); // Update Z velocity uncertainty
 }
 
 /**
@@ -749,12 +791,12 @@ void StateEstimation::updatePrelaunch(){
 /**
  * @brief Sets the vehicle state.
  * Error codes:
- * -1 Invalid state
- * -2 Invalid transition
- * -3 Bad sensors
- * -4 Pyro continuity not detected
+ * 1 Invalid state
+ * 2 Invalid transition
+ * 3 Bad sensors
+ * 4 Pyro continuity not detected
  */
-int StateEstimation::setVehicleState(int state){
+uint8_t StateEstimation::setVehicleState(int state){
     // 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
     if (state >= -1 && state <= 7) {
         switch (state){
@@ -762,17 +804,17 @@ int StateEstimation::setVehicleState(int state){
                 if (vehicleState == 0){
                     if(sensorStatus == 0 && gps.getGPSInfo().fixType > 3){ // allow arm with RTKfix or RTK float, and all sensors functioning
                         if(getPyroCont() == false){ // Check if pyro continuity is not detected
-                            return -4; // Cannot arm if pyro continuity is not detected
+                            return 4; // Cannot arm if pyro continuity is not detected
                         }
                         vehicleState = 1;
                         XPos.begin(); // Initialize X Kalman
                         YPos.begin(); // Initialize Y Kalman
                         ZPos.begin(); // Initialize Z Kalman
                     } else {
-                        return -3; // Cannot arm if sensors are not all functioning
+                        return 3; // Cannot arm if sensors are not all functioning
                     }
                 }else{
-                    return -2;
+                    return 2;
                 }
                 break;
             case 0: //disarm process
@@ -789,7 +831,7 @@ int StateEstimation::setVehicleState(int state){
     } else if (state >= 64){
         vehicleState = state; // Set vehicle state to testing states
     } else {
-        return -1; // Invalid state
+        return 1; // Invalid state
     }
     return 0;
 }
@@ -833,7 +875,7 @@ void StateEstimation::detectApogee(){
 }
 
 // gets gimbal misalign, assumes that it starts at launch time = 0
-void StateEstimation::getGimbalMisalign(){
+void StateEstimation::computeGimbalMisalign(){
     if(lastGimbalMisalignMicros == 0) { // If this is the first update, set lastGimbalMisalignMicros to current time
         lastGimbalMisalignMicros = micros();
         return;

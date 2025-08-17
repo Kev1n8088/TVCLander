@@ -3,16 +3,28 @@
 #include <Arduino.h>
 #include <Constants.h>
 #include "StateEstimation.h"
-#include "LINK80.h"
 
 EXTMEM uint8_t telemetryBuffer[MAX_DATA_LOGS * BYTES_PER_LOG];
 static uint8_t serialBuffer[32 * 1024];
+
+static uint8_t telemetryPacketBuffer[LINK80::MAX_PACKET_SIZE];
 
 enum PacketType {
     PACKET_TELEMETRY = 0x01,
     PACKET_COMMAND   = 0x02
 };
 
+
+struct RTCMBuffer {
+    uint8_t data[1030];
+    size_t length;
+    bool active;
+    uint32_t lastUpdateMillis;
+};
+
+static RTCMBuffer rtcmBuffers[128]; // RTCM ID is uint8_t
+
+static uint8_t receiveBuffer[600]; // Buffer for received packets
 
 /**
  * @brief Telemetry constructor. Initializes member variables.
@@ -22,9 +34,11 @@ Telemetry::Telemetry(){
     lastTelemetryMillis = 0;
     oldVehicleState = 0;
     telemetryBufferUsed = 0;
-    SDGood = 0;
+    SDGood = false;
     logFileName = "flightlog.bin";
     downCount = 0;
+    packetBufferLen = 0;
+    currentPacketType = 0;
 }
 
 /**
@@ -32,13 +46,14 @@ Telemetry::Telemetry(){
  */
 void Telemetry::begin(){
     TELEMETRY_SERIAL.begin(TELEMETRY_BAUD); // Initialize telemetry serial port with specified baud rate
+    pinMode(VBAT_SENSE_PIN, INPUT); // Set VBAT sense pin as input
     if (!SD.begin()) { // Initialize SD card
-        SDGood = 0; // Set SDGood to 0 if SD card initialization fails
+        SDGood = false; // Set SDGood to 0 if SD card initialization fails
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("SD Card initialization failed!");
         }
     } else {
-        SDGood = 1; // Set SDGood to 1 if SD card initialization is successful
+        SDGood = true; // Set SDGood to 1 if SD card initialization is successful
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("SD Card initialized successfully!");
         }
@@ -55,57 +70,16 @@ void Telemetry::begin(){
 void Telemetry::telemetryLoop(StateEstimation& state){
     uint64_t currentMillis = millis();
 
-    //handleReceive(state);
+    handleReceive(state);
 
     if (currentMillis - lastLogMillis >= DATALOG_INTERVAL) {
         lastLogMillis = currentMillis;
         int vehicleState = state.getVehicleState();
 
-        // Prepare telemetry data
-        float quat[4];
-        state.getOrientationQuaternionArray(quat);
-        float worldAccel[3];
-        float worldVelocity[3];
-        float worldPosition[3];
-        memcpy(worldAccel, state.getWorldAccel(), 3 * sizeof(float));
-        memcpy(worldVelocity, state.getWorldVelocity(), 3 * sizeof(float));
-        memcpy(worldPosition, state.getWorldPosition(), 3 * sizeof(float));
-        float rawAccel[3];
-        float rawGyro[3];
-        memcpy(rawAccel, state.getAccelCalibrated(), 3 * sizeof(float));
-        memcpy(rawGyro, state.getGyroRemovedBias(), 3 * sizeof(float));
-        float gyroBias[3];
-        memcpy(gyroBias, state.getGyroBias(), 3 * sizeof(float));
-        float attitudeSetpoint[2] = {0, 0}; // Placeholder
-        float servoCommand[2] = {0, 0}; // Placeholder
-        float thrust = state.getThrust();
-        float reactionWheelSpeed = 0; // Placeholder
-        int sensorStatus = state.getSensorStatus();
-        int SDGoodVal = SDGood;
-
-        // Log data
-        // dataLog(
-        //     millis() / 1000.0f, // timeSec
-        //     quat,
-        //     worldAccel,
-        //     worldVelocity,
-        //     worldPosition,
-        //     rawAccel,
-        //     rawGyro,
-        //     gyroBias,
-        //     attitudeSetpoint,
-        //     servoCommand,
-        //     thrust,
-        //     reactionWheelSpeed,
-        //     vehicleState,
-        //     sensorStatus,
-        //     SDGoodVal
-        // );
-
         if (vehicleState != oldVehicleState) {
             oldVehicleState = vehicleState;
             if (vehicleState == 7) {
-                dumpToSD();
+                //dumpToSD();
             }
         }
         if (DEBUG_MODE) {
@@ -116,53 +90,338 @@ void Telemetry::telemetryLoop(StateEstimation& state){
     if (currentMillis - lastTelemetryMillis >= TELEMETRY_INTERVAL) {
         lastTelemetryMillis = currentMillis;
         // Prepare telemetry data
-        float launchTime = state.getLaunchTime();
-        float quat[4];
-        state.getOrientationQuaternionArray(quat);
-        float worldAccel[3];
-        float worldVelocity[3];
-        float worldPosition[3];
-        memcpy(worldAccel, state.getWorldAccel(), 3 * sizeof(float));
-        memcpy(worldVelocity, state.getWorldVelocity(), 3 * sizeof(float));
-        memcpy(worldPosition, state.getWorldPosition(), 3 * sizeof(float));
-        float rawAccel[3];
-        float rawGyro[3];
-        memcpy(rawAccel, state.getAccelCalibrated(), 3 * sizeof(float));
-        memcpy(rawGyro, state.getGyroRemovedBias(), 3 * sizeof(float));
-        float gyroBias[3];
-        memcpy(gyroBias, state.getGyroBias(), 3 * sizeof(float));
-        float attitudeSetpoint[2] = {0, 0}; // Placeholder
-        float servoCommand[2] = {0, 0}; // Placeholder
-        float thrust = state.getThrust();
-        float reactionWheelSpeed = 0; // Placeholder
-        int vehicleState = state.getVehicleState(); 
-        int sensorStatus = state.getSensorStatus();
-        int SDGoodVal = SDGood;
-
-
-        sendTelemetry(
-            launchTime,
-            quat,
-            worldAccel,
-            worldVelocity,
-            worldPosition,
-            rawAccel,
-            rawGyro,
-            gyroBias,
-            attitudeSetpoint,
-            servoCommand,
-            thrust,
-            reactionWheelSpeed,
-            vehicleState,
-            sensorStatus,
-            SDGoodVal
-        );
+        sendTelemetry(state);
 
         if (DEBUG_MODE){
 
         }
     }   
 }
+
+
+/**
+ * @brief Dumps logged telemetry data from PSRAM to SD card as binary file.
+ */
+// void Telemetry::dumpToSD(){
+//     if (telemetryBufferUsed == 0) return;
+
+//     File logFile = SD.open(logFileName.c_str(), FILE_WRITE); // Use configurable file name
+//     if (logFile) {
+//         logFile.write(telemetryBuffer, telemetryBufferUsed);
+//         logFile.close();
+//     }
+
+//     // Clear buffer for next use
+//     telemetryBufferUsed = 0;
+// }
+
+/**
+ * @brief Packs and sends telemetry data over serial in binary format.
+ */
+void Telemetry::sendTelemetry(StateEstimation& state) {
+
+    downCount = (downCount + 1) % UINT16_MAX; // Increment downCount and wrap around at 2^32
+
+    //DEBUG_SERIAL.println(downCount);
+
+    currentPacketType = (currentPacketType + 1) % 7;
+    //currentPacketType = 2; //testing
+
+    size_t packet_size = 0;
+
+    LINK80::StateTelemetry stateTelem;
+    LINK80::SensorData sensors;
+    LINK80::LanderData lander;
+    LINK80::GPSData gps;
+    LINK80::KalmanData kalman;
+    GPSInfo& gpsInfo = state.getGPSInfo();
+
+    switch (currentPacketType){
+        case 0:
+        case 4: //state telem packet
+            stateTelem = {
+                .vehicle_state = (int8_t)state.getVehicleState(),
+                .quat_w = state.getOrientationQuaternion().a,
+                .quat_x = state.getOrientationQuaternion().b,
+                .quat_y = state.getOrientationQuaternion().c,
+                .quat_z = state.getOrientationQuaternion().d,
+                .accel_x = state.getWorldAccel()[0],
+                .accel_y = state.getWorldAccel()[1],
+                .accel_z = state.getWorldAccel()[2],
+                .vel_x = state.getWorldVelocity()[0],
+                .vel_y = state.getWorldVelocity()[1],
+                .vel_z = state.getWorldVelocity()[2],
+                .pos_x = state.getWorldPosition()[0],
+                .pos_y = state.getWorldPosition()[1],
+                .pos_z = state.getWorldPosition()[2],
+                .time_since_launch = state.getTimeSinceLaunch(),
+                .vehicle_ms = millis(),
+                .down_count = downCount
+            };
+            break;
+        case 1: // sensor telem packet
+            sensors = {
+                .failmask = state.getSensorStatus(),
+                .sd_good = SDGood,
+                .gyro_yaw = state.getGyroRemovedBias()[0],
+                .gyro_pitch = state.getGyroRemovedBias()[1],
+                .gyro_roll = state.getGyroRemovedBias()[2],
+                .accel_x = state.getAccelCalibrated()[0],
+                .accel_y = state.getAccelCalibrated()[1],
+                .accel_z = state.getAccelCalibrated()[2],
+                .baro_altitude = 0.0, // zero for now since barometer is not used
+                .gyro_bias_yaw = state.getGyroBias()[0],
+                .gyro_bias_pitch = state.getGyroBias()[1],
+                .gyro_bias_roll = state.getGyroBias()[2],
+                .vehicle_ms = millis(),
+                .down_count = downCount
+            };
+            break;
+        case 2: 
+        case 6: // lander telem packet
+            lander = {
+                .YTarget = Y_TARGET,
+                .ZTarget = Z_TARGET,
+                .ignitionAlt = state.getIgnitionAltitude(),
+                .apogeeAlt = state.getApogeeAltitude(),
+                .yawSetpoint = state.getAttitudeSetpoint()[0],
+                .pitchSetpoint = state.getAttitudeSetpoint()[1],
+                .yawCommand = state.getAngularAccelCommand()[0],
+                .pitchCommand = state.getAngularAccelCommand()[1],
+                .rollMixedYaw = state.getGimbalAngle()[0],
+                .rollMixedPitch = state.getGimbalAngle()[1],
+                .yawMisalign = state.getGimbalMisalign()[0],
+                .pitchMisalign = state.getGimbalMisalign()[1],
+                .rollCommand = state.getWheelSpeed(),
+                .YProjected = state.getProjectedLandingPosition()[0],
+                .ZProjected = state.getProjectedLandingPosition()[1],
+                .VBAT = (analogRead(VBAT_SENSE_PIN) / 1023.0f) * VBAT_DIVIDER, 
+                .thrust = state.getThrust(),
+                .mass = state.getMass(),
+                .MMOI = state.getPitchYawMMOI(),
+                .momentArm = state.getMomentArm(),
+                .pyroStatus = (uint8_t)state.getPyroCont() ? (uint8_t)127 : (uint8_t)0, // 1 if pyro is ready, 0 otherwise
+                .vehicle_ms = millis(),
+                .down_count = downCount
+            };
+            break;
+        case 3:
+            gps = {
+                .satsInView = (uint8_t)gpsInfo.satsInView,
+                .satsUsed = (uint8_t)gpsInfo.satsUsed,
+                .fixType = (uint8_t)gpsInfo.fixType,
+                .latitude = gpsInfo.pos.latitude,
+                .longitude = gpsInfo.pos.longitude,
+                .altitude = gpsInfo.pos.altitude,
+                .accuracy2D = gpsInfo.error2D,
+                .accuracy3D = gpsInfo.error3D,
+                .PDOP = gpsInfo.pdop,
+                .gps_ms = gpsInfo.timeOfWeek,
+                .lastRTCM = gpsInfo.rtcmAge,
+                .latHome = gpsInfo.home.latitude,
+                .lonHome = gpsInfo.home.longitude,
+                .altHome = gpsInfo.home.altitude,
+                .vehicle_ms = millis(),
+                .down_count = downCount
+            };
+            break;
+        case 5: // Kalman telem packet
+            kalman = {
+                .accUncX = state.getAccelUncertainty()[0],
+                .accUncY = state.getAccelUncertainty()[1],
+                .accUncZ = state.getAccelUncertainty()[2],
+                .velUncX = state.getVelocityUncertainty()[0],
+                .velUncY = state.getVelocityUncertainty()[1],
+                .velUncZ = state.getVelocityUncertainty()[2],
+                .accelMeasuredX = state.getRawRotatedAccel()[0],
+                .accelMeasuredY = state.getRawRotatedAccel()[1],
+                .accelMeasuredZ = state.getRawRotatedAccel()[2],
+                .velMeasuredX = -gpsInfo.pos.velocityDown,
+                .velMeasuredY = gpsInfo.pos.velocityEast,
+                .velMeasuredZ = gpsInfo.pos.velocityNorth,
+                .posMeasuredX = gpsInfo.xyz.x,
+                .posMeasuredY = gpsInfo.xyz.y,
+                .posMeasuredZ = gpsInfo.xyz.z,
+                .vehicle_ms = millis(),
+                .down_count = downCount
+            };  
+            break;
+    };
+
+    // Use static buffer for packing
+    if(currentPacketType == 0 || currentPacketType == 4){
+        packet_size = LINK80::packStateTelemetry(stateTelem, telemetryPacketBuffer);
+    }else if(currentPacketType == 1){
+        packet_size = LINK80::packSensorData(sensors, telemetryPacketBuffer);
+    }else if(currentPacketType == 2 || currentPacketType == 6){
+        packet_size = LINK80::packLanderData(lander, telemetryPacketBuffer);
+    }else if(currentPacketType == 3){
+        packet_size = LINK80::packGPSData(gps, telemetryPacketBuffer);
+    }else if(currentPacketType == 5){
+        packet_size = LINK80::packKalmanData(kalman, telemetryPacketBuffer);
+    }
+
+    if (packet_size == 0) {
+        // Packing failed
+        DEBUG_SERIAL.println("Failed to pack telemetry data");
+        return;
+    }
+
+    TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
+
+    if (DEBUG_MODE){
+        DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
+    }
+}
+
+void Telemetry::returnAck(uint8_t messageType, uint8_t commandID, uint8_t errorCode) {
+    
+    downCount = (downCount + 1) % 4294967296; // Increment downCount and wrap around at 2^32
+
+    size_t packet_size = LINK80::packCommandAck(messageType, commandID, errorCode, telemetryPacketBuffer, millis(), downCount);
+    if (packet_size > 0) {
+        TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
+    }
+}
+
+void Telemetry::handleReceive(StateEstimation& state) {
+    // Read all available bytes from TELEMETRY_SERIAL
+    while (TELEMETRY_SERIAL.available() > 0 && packetBufferLen < RX_BUFFER_SIZE) {
+        receiveBuffer[packetBufferLen++] = TELEMETRY_SERIAL.read();
+    }
+
+    // Process all complete packets
+    while (packetBufferLen >= LINK80::HEADER_SIZE + LINK80::CHECKSUM_SIZE) {
+        size_t packetSize = findAndExtractPacket();
+        if (packetSize > 0) {
+            LINK80::UnpackedPacket unpacked = LINK80::unpackPacket(receiveBuffer, packetSize);
+            if (unpacked.message_type >= 10 && unpacked.message_type <= 12) {
+                // Handle command packet
+                uint8_t commandID = LINK80::parseCommand(unpacked);
+                uint8_t error = 0; // Default to no error
+                switch (unpacked.message_type){
+                    case LINK80::MessageType::PING:
+                        // Respond to ping with a command ack
+                        returnAck(LINK80::MessageType::PING, commandID, 0);
+                        break;
+                    case LINK80::MessageType::DISARM:
+                        error = state.setVehicleState(0);
+                        returnAck(LINK80::MessageType::DISARM, commandID, error);
+                        break;
+                    case (LINK80::MessageType::ARM):
+                        error = state.setVehicleState(1);
+                        returnAck(LINK80::MessageType::ARM, commandID, error);
+                        break;
+                }
+            }
+            if (unpacked.message_type >= 51 && unpacked.message_type <= 55) {
+                handleRTCM(unpacked, state);
+            }
+            // Remove processed packet from buffer
+            memmove(receiveBuffer, receiveBuffer + packetSize, packetBufferLen - packetSize);
+            packetBufferLen -= packetSize;
+        } else {
+            break; // No complete packet found
+        }
+    }
+}
+
+size_t Telemetry::findAndExtractPacket() {
+    // Look for packet header
+    size_t headerIndex = SIZE_MAX;
+    for (size_t i = 0; i < packetBufferLen; ++i) {
+        if (receiveBuffer[i] == LINK80::PACKET_HEADER) {
+            headerIndex = i;
+            break;
+        }
+    }
+    if (headerIndex == SIZE_MAX) {
+        // No header found, clear buffer
+        packetBufferLen = 0;
+        return 0;
+    }
+
+    // Remove any data before the header
+    if (headerIndex > 0) {
+        memmove(receiveBuffer, receiveBuffer + headerIndex, packetBufferLen - headerIndex);
+        packetBufferLen -= headerIndex;
+    }
+
+    // Check if we have enough data for header
+    if (packetBufferLen < LINK80::HEADER_SIZE) {
+        return 0;
+    }
+
+    uint8_t payloadLength = receiveBuffer[1];
+    size_t expectedPacketSize = LINK80::HEADER_SIZE + payloadLength;
+
+    // Check if we have the complete packet
+    if (packetBufferLen < expectedPacketSize) {
+        return 0;
+    }
+
+    // Return the size of the complete packet
+    return expectedPacketSize;
+}
+
+
+
+void Telemetry::handleRTCM(const LINK80::UnpackedPacket& packet, StateEstimation& state) {
+    if (!packet.valid || packet.message_type < 51 || packet.message_type > 55) return;
+
+    uint8_t rtcm_id = packet.data[0];
+    if (rtcm_id >= 128) {
+        // Invalid RTCM ID, ignore packet
+        return;
+    }
+
+    size_t fragment_len = packet.data_length - 1; // Exclude RTCM ID byte
+
+    RTCMBuffer& buf = rtcmBuffers[rtcm_id];
+    if (!buf.active) {
+        buf.length = 0;
+        buf.active = true;
+    }
+
+    // Append fragment
+    if (buf.length + fragment_len <= sizeof(buf.data)) {
+        memcpy(buf.data + buf.length, packet.data + 1, fragment_len);
+        buf.length += fragment_len;
+    }
+
+    buf.lastUpdateMillis = millis();
+
+    // If message_type == 55, packet is complete
+    if (packet.message_type == 55) {
+        state.getGPSHandler().sendRTCMCorrection(buf.data, buf.length);
+        buf.active = false;
+        buf.length = 0;
+        buf.lastUpdateMillis = 0;
+    }
+
+    for (int i = 0; i < 128; ++i) {
+        if (rtcmBuffers[i].active && millis() - rtcmBuffers[i].lastUpdateMillis > 3000) { // 1 second timeout
+            rtcmBuffers[i].active = false;
+            rtcmBuffers[i].length = 0;
+            rtcmBuffers[i].lastUpdateMillis = 0;
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * @brief Logs telemetry data to PSRAM buffer in binary format.
@@ -203,73 +462,4 @@ void Telemetry::dataLog(float timeSec, float quaternion[4], float worldAccel[3],
     memcpy(ptr, &SDGood, sizeof(int)); ptr += sizeof(int);
 
     telemetryBufferUsed += BYTES_PER_LOG;
-}
-
-/**
- * @brief Dumps logged telemetry data from PSRAM to SD card as binary file.
- */
-void Telemetry::dumpToSD(){
-    if (telemetryBufferUsed == 0) return;
-
-    File logFile = SD.open(logFileName.c_str(), FILE_WRITE); // Use configurable file name
-    if (logFile) {
-        logFile.write(telemetryBuffer, telemetryBufferUsed);
-        logFile.close();
-    }
-
-    // Clear buffer for next use
-    telemetryBufferUsed = 0;
-}
-
-/**
- * @brief Packs and sends telemetry data over serial in binary format.
- */
-void Telemetry::sendTelemetry(float timeSec, float quaternion[4], float worldAccel[3],
-                 float worldVelocity[3], float worldPosition[3], float rawAccel[3],
-                float rawGyro[3], float gyroBias[3], float attitudeSetpoint[2], float servoCommand[2], 
-                float thrust, float reactionWheelSpeed, int vehicleState, int sensorStatus, int SDGood) {
-
-    downCount = (downCount + 1) % 4294967296; // Increment downCount and wrap around at 2^32
-    
-    LINK80::StateTelemetry state = {
-        .vehicle_state = (int8_t)vehicleState,
-        .quat_w = quaternion[0],
-        .quat_x = quaternion[1],
-        .quat_y = quaternion[2],
-        .quat_z = quaternion[3],
-        .accel_x = worldAccel[0],
-        .accel_y = worldAccel[1],
-        .accel_z = worldAccel[2],
-        .vel_x = worldVelocity[0],
-        .vel_y = worldVelocity[1],
-        .vel_z = worldVelocity[2],
-        .pos_x = worldPosition[0],
-        .pos_y = worldPosition[1],
-        .pos_z = worldPosition[2],
-        .time_since_launch = timeSec,
-        .vehicle_ms = millis(),
-        .down_count = downCount,
-    };
-
-    uint8_t packet_buffer[255];
-    size_t packet_size = LINK80::packStateTelemetry(state, packet_buffer);
-
-    // packet_size = LINK80::packCommandAck(51, 0, packet_buffer);
-
-    if (packet_size == 0) {
-        // Packing failed
-        return;
-    }
-
-    TELEMETRY_SERIAL.write(packet_buffer, packet_size);
-
-    if (DEBUG_MODE){
-        //DEBUG_SERIAL.write(packet_buffer, packet_size);
-        //for 6 point calibration
-        // DEBUG_SERIAL.print(rawAccel[1], 4);
-        // DEBUG_SERIAL.print(", ");
-        // DEBUG_SERIAL.print(rawAccel[0], 4);
-        // DEBUG_SERIAL.print(", ");
-        // DEBUG_SERIAL.println(rawAccel[2], 4);
-    }
 }

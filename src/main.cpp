@@ -22,14 +22,16 @@ StateEstimation StateEstimate;
 Telemetry TelemetrySystem;
 
 
+
 void setup() {
   // put your setup code here, to run once
 
   if (DEBUG_MODE) {
       DEBUG_SERIAL.begin(DEBUG_BAUD); // Initialize debug serial port with specified baud rate
-      // while (!DEBUG_SERIAL) {
-      //   delay(1); // Wait for serial port to connect. Needed for native USB port only
-      // }
+      while (!DEBUG_SERIAL) {
+        delay(1); // Wait for serial port to connect. Needed for native USB port only
+      }
+      DEBUG_SERIAL.println("Debug mode enabled");
   }
 
   pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
@@ -40,13 +42,11 @@ void setup() {
   DEBUG_SERIAL.println(StateEstimate.begin()); // Initialize state estimation
   TelemetrySystem.begin(); // Initialize telemetry system
   StateEstimate.setVehicleState(0); // Set initial vehicle state to disarmed
+  DEBUG_SERIAL.println("Setup complete1");
 
 }
 
 void loop() {
-  if (millis() > 10000){
-    StateEstimate.setVehicleState(1); // Set vehicle state to armed after 10 seconds
-  }
   StateEstimate.estimateState();
   TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data=
 }

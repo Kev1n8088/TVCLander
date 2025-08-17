@@ -42,9 +42,7 @@ private:
     KalmanFilter YPos;
     KalmanFilter ZPos;
 
-    
-    Servo PitchServo;
-    Servo YawServo;
+
 
     MotorController RollMotor; // Motor controller for roll motor
 
@@ -87,6 +85,8 @@ private:
     float angularAccelCommand[2]; // before transform applied for servo command
 
     float gimbalAngle[2]; // after transform applied for servo command, before mapping
+    
+    float projectedLandingPosition[2];
 
     float wheelSpeed;
 
@@ -95,10 +95,14 @@ private:
 
     float thrust;
 
-    int sensorStatus;
+    uint8_t sensorStatus;
 
     float apogeeAltitude;
     float landingIgnitionAltitude;
+
+    float accelUncertainty[3];
+    float velocityUncertainty[3];
+    float positionUncertainty[3];
 
 
     int beginBaro();
@@ -117,7 +121,7 @@ private:
 
     void detectLaunch();
     void detectApogee();
-    void getGimbalMisalign();
+    void computeGimbalMisalign();
     void PIDLoop();
     void actuateServos(bool actuate = true, bool includePID = true); // Actuate servos based on attitude setpoints
     void actuateWheel();
@@ -135,8 +139,8 @@ public:
     float getThrust();
     int getVehicleState() { return vehicleState; }
     float getTimeSinceLaunch() { return timeSinceLaunch; }
-    int getSensorStatus() { return sensorStatus; }
-    int setVehicleState(int state); 
+    uint8_t getSensorStatus() { return sensorStatus; }
+    uint8_t setVehicleState(int state); 
 
     bool getPyroCont();
 
@@ -169,8 +173,25 @@ public:
     const float* getGyroRemovedBias() const { return gyroRemovedBias; }
     const float* getAccelCalibrated() const { return accelCalibrated; }
     float getLaunchTime() { return launchTime; }
+    float getIgnitionAltitude() { return landingIgnitionAltitude; }
+    float getApogeeAltitude() { return apogeeAltitude; }
+
+    const float* getAttitudeSetpoint() const { return attitudeSetpoint; } // Yaw, pitch
+    const float* getGimbalMisalign() const { return gimbalMisalign; } // Yaw, pitch
+    const float* getGimbalAngle() const { return gimbalAngle; } // Yaw, pitch
+    const float* getAngularAccelCommand() const { return angularAccelCommand; } // Yaw, pitch
+
+    float getWheelSpeed() { return wheelSpeed; } // Returns the current wheel speed in rad/s
+    const float* getProjectedLandingPosition() const { return projectedLandingPosition; } // Returns the projected landing position in Y, Z
+
+    const float* getRawRotatedAccel() const {return measuredWorldAccel; } // Returns the raw rotated acceleration in world frame
+
+    const float* getAccelUncertainty() const { return accelUncertainty; } // Returns the acceleration uncertainty in world frame
+    const float* getVelocityUncertainty() const { return velocityUncertainty; } // Returns the velocity uncertainty in world frame
+    const float* getPositionUncertainty() const { return positionUncertainty; } // Returns the position uncertainty in world frame
 
     GPSInfo& getGPSInfo() { return gps.getGPSInfo(); }
+    GPSHandler& getGPSHandler() { return gps; }
 };
 
 #endif // STATEESTIMATION_H
