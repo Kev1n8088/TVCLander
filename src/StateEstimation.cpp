@@ -78,6 +78,12 @@ void StateEstimation::resetVariables(){
     expectedGravity = Quaternion(-WORLD_GRAVITY_X, -WORLD_GRAVITY_Y, -WORLD_GRAVITY_Z);
     actualAccel = Quaternion(0, 0, 0,0 ); // Reset actual acceleration vector in body frame to zero
     GPSLocation = Quaternion(0, 0.2, 0, 0); 
+    worldGPSLocation = Quaternion(0, 0, 0, 0);
+    GPSVelocityWorld = Quaternion(0, 0, 0, 0);
+    GPSVelocityBody = Quaternion(0, 0, 0, 0);
+    angularAccelCommandVector = Quaternion(0, 0, 0, 0);
+    bodyAngularAccelCommandVector = Quaternion(0, 0, 0, 0);
+
     
     // init variables
     resetLinearVariables();
@@ -628,8 +634,11 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
     }
 
     // roll mixer
-    gimbalAngle[0] = sin(getEulerAngle()[2]) * (angularAccelCommand[1]) + cos(getEulerAngle()[2]) * (angularAccelCommand[0]); // Yaw gimbal angle command
-    gimbalAngle[1] = cos(getEulerAngle()[2]) * (angularAccelCommand[1]) - sin(getEulerAngle()[2]) * (angularAccelCommand[0]); // Pitch gimbal angle command
+    angularAccelCommandVector = Quaternion(0, 0, angularAccelCommand[0], angularAccelCommand[1]); // Yaw pitch
+    bodyAngularAccelCommandVector = ori.orientation.conj().rotate(angularAccelCommandVector);
+
+    gimbalAngle[0] =  bodyAngularAccelCommandVector.c; // Yaw gimbal angle command
+    gimbalAngle[1] = bodyAngularAccelCommandVector.d; // Pitch gimbal angle command
 
     // convert from angular acceleration to gimbal angle
     float modifier = getPitchYawMMOI() / (getThrust() * getMomentArm()); // Modifier to convert angular acceleration to gimbal angle

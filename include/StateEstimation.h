@@ -47,6 +47,9 @@ private:
     Quaternion GPSVelocityBody;
     Quaternion GPSVelocityWorld;
 
+    Quaternion angularAccelCommandVector;
+    Quaternion bodyAngularAccelCommandVector;
+
 
     MotorController RollMotor; // Motor controller for roll motor
 
