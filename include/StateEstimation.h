@@ -105,6 +105,9 @@ private:
 
     uint8_t sensorStatus;
 
+    uint64_t dt_loop;
+    uint64_t lastIMUReadMicros; // Last time IMU data was read in microseconds
+
     float apogeeAltitude;
     float landingIgnitionAltitude;
 
@@ -200,6 +203,9 @@ public:
     const float* getVelocityUncertainty() const { return velocityUncertainty; } // Returns the velocity uncertainty in world frame
     const float* getPositionUncertainty() const { return positionUncertainty; } // Returns the position uncertainty in world frame
     void forceVehicleState(int state) { vehicleState = state; } // For testing only, forces vehicle state without checks
+
+    uint64_t getDt() const { return dt_loop; } // Returns the last state estimate time in microseconds
+    uint64_t getLastIMUReadMicros() const { return lastIMUReadMicros; } // Returns the last IMU read time in microseconds
 
     GPSInfo& getGPSInfo() { return gps.getGPSInfo(); }
     GPSHandler& getGPSHandler() { return gps; }

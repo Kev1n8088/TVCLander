@@ -20,6 +20,7 @@ public:
     float getOutput();
     void clearIntegral() { integral = 0.0; } // Reset integral term
     void clearDerivative() { lastError = 0.0; } // Reset derivative term
+    void reset();
 
 };
 

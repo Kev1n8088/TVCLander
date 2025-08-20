@@ -7,6 +7,7 @@
 class MotorController {
 public:
     MotorController();
+    void begin();
     void stop();
     void setSpeed(float speed);
 };

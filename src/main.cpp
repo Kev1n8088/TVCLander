@@ -22,6 +22,7 @@ StateEstimation StateEstimate;
 Telemetry TelemetrySystem;
 
 
+uint64_t endSetupTime = 0; // Variable to store the end time of setup for debugging purposes
 
 void setup() {
   // put your setup code here, to run once
@@ -44,9 +45,18 @@ void setup() {
   //StateEstimate.forceVehicleState(1); // Set initial vehicle state to disarmed
   DEBUG_SERIAL.println("Setup complete1");
 
+  endSetupTime = millis(); // Record the end time of setup for debugging purposes
 }
 
 void loop() {
   StateEstimate.estimateState();
-  TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data=
+  TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data
+
+  if (millis() - endSetupTime > 10000){
+    if (StateEstimate.getVehicleState() == 0) {
+      //StateEstimate.setVehicleState(69); // Set vehicle state to armed after 10 seconds
+      StateEstimate.forceVehicleState(69);
+      DEBUG_SERIAL.println("Vehicle state set to armed test");
+    }
+  }
 }

@@ -51,8 +51,14 @@ int StateEstimation::begin(){
     pinMode(IMU0_DRY_PIN, INPUT); // Set the dry pin for SCH1 as input
     pinMode(LAND_CONTINUITY, INPUT); // Set the land continuity pin as input
     pinMode(LAND_PYRO, OUTPUT); // Set the land pyro pin as output
+    digitalWrite(LAND_PYRO, LOW); // Initialize the land pyro pin to LOW
+    RollMotor.begin();
     PitchServo.attach(PITCH_SERVO); // Attach the pitch servo to the specified pin
     YawServo.attach(YAW_SERVO); // Attach the yaw servo to the specified pin
+
+    //debug stuff
+    dt_loop = 0;
+    lastIMUReadMicros = micros(); // Initialize last IMU read time
 
     uint8_t failMask = 0;
     if (beginBaro() != 0)  failMask |= 0x01;
@@ -78,6 +84,8 @@ void StateEstimation::resetVariables(){
 
     timeSinceLaunch = 0.0f; // Time since launch in seconds
     launchTime = 0.0f; // Launch time in seconds
+    
+    wheelSpeed = 0.0f; // Wheel speed in rad/s
 
     gimbalMisalign[0] = 0;
     gimbalMisalign[1] = 0;
@@ -102,6 +110,17 @@ void StateEstimation::resetVariables(){
     gyroBias[0] = 0.0f; // Gyro bias for X axis in rad/s
     gyroBias[1] = 0.0f; // Gyro bias for Y axis in rad/s
     gyroBias[2] = 0.0f; // Gyro bias for Z axis in rad/s
+
+    attitudeSetpoint[0] = 0.0f; // Yaw setpoint in rad
+    attitudeSetpoint[1] = 0.0f; // Pitch setpoint in rad
+
+    angularAccelCommand[0] = 0.0f; // Yaw angular acceleration command in rad/s^2
+    angularAccelCommand[1] = 0.0f; // Pitch angular acceleration command in rad/s^2
+
+    gimbalAngle[0] = 0.0f; // Yaw angle in rad
+    gimbalAngle[1] = 0.0f; // Pitch angle in rad
+
+    thrust = 12.5f; // Initial thrust in N
 }
 
 /**
@@ -129,6 +148,8 @@ void StateEstimation::resetLinearVariables(){
         accelUncertainty[i] = 0.0f; // Reset acceleration uncertainty in world frame
         velocityUncertainty[i] = 0.0f; // Reset velocity uncertainty in world frame
         positionUncertainty[i] = 0.0f; // Reset position uncertainty in world frame
+        adjustedGPSPosition[i] = 0.0f; // Reset adjusted GPS position in world frame
+        adjustedGPSVelocity[i] = 0.0f; // Reset adjusted GPS velocity in world frame
 
     }
 }
@@ -279,6 +300,7 @@ void StateEstimation::estimateState(){
 
     if (micros() - lastStateEstimateMicros < STATE_ESTIMATION_INTERVAL_US) { // If not enough time has passed since last update, return
         return;
+    
     }
 
     lastStateEstimateMicros = micros(); // Update last state estimate time
@@ -288,6 +310,7 @@ void StateEstimation::estimateState(){
     }
 
     gps.gpsLoop(); // Update GPS data
+
 
     // State machine
     switch (vehicleState){
@@ -300,13 +323,13 @@ void StateEstimation::estimateState(){
             break;
         case 1: // Armed State. < 30 seconds before launch, do not update gyro bias.
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
+
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
-                PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos(false); // center servos without actuating them
-                actuateWheel(); 
+                RollMotor.stop(); // Stop roll motor
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
                 //detectLaunch();
             }
@@ -393,6 +416,8 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos(false); // center servos without actuating them
                 actuateWheel(); 
@@ -402,7 +427,7 @@ void StateEstimation::estimateState(){
         // Servo test cases - no wheel
         case 65: // Stabilization test state (no use of positional PID)
         case 66:// Positional PID test state (setpoint 0)
-        case 67:// Predictive Positional PID test state (setpoint follows trajectory)
+        case 67:// Trajectory Positional PID test state (setpoint follows trajectory)
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
@@ -416,6 +441,7 @@ void StateEstimation::estimateState(){
             break;
         case 68: //misalignment test - operation: rotate the vehicle and the gimbal should move in the opposite direction 
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
+            
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
@@ -426,6 +452,18 @@ void StateEstimation::estimateState(){
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             break;
+        case 69: //Testing arm phase (kalman gets reset)
+            if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
+                dt_loop = micros() - lastIMUReadMicros; // Calculate time since last IMU read in microseconds
+                lastIMUReadMicros = micros(); // Update last IMU read time
+                readIMU0(); // Read IMU data only if DRY
+                oriLoop(); // Call orientation loop to update orientation
+                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                GPSLoop();
+                RollMotor.stop(); // Stop roll motor
+                actuateServos(false); // center servos without actuating them
+                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
+            }
     }
         
 }
@@ -452,9 +490,11 @@ void StateEstimation::GPSLoop(){
     adjustedGPSVelocity[1] = gps.getGPSInfo().pos.velocityEast - GPSVelocityWorld.c; // Adjust GPS velocity for lever arm and orientation
     adjustedGPSVelocity[2] = gps.getGPSInfo().pos.velocityNorth - GPSVelocityWorld.d; // Adjust GPS velocity for lever arm and orientation
 
-    XPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[0]); // Update X position and velocity from GPS data
-    YPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Y position and velocity from GPS data
-    ZPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Z position and velocity from GPS data
+    if(gps.getGPSInfo().fixType > 3){
+        XPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[0]); // Update X position and velocity from GPS data
+        YPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Y position and velocity from GPS data
+        ZPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Z position and velocity from GPS data
+    }
 
     // Update world frame position and velocity from GPS data
     worldPosition[0] = XPos.getPosition(); // Update world frame X position
@@ -639,7 +679,14 @@ void StateEstimation::actuateWheel(){
     // reaction wheel controller
     wheelSpeed += (RollPID.getOutput() / WHEEL_MOI) * dt;  // Roll wheel speed command, because PID requests torque and torque is only generated by changing wheel speed
     wheelSpeed = min(max(wheelSpeed, -MAX_WHEEL_SPEED), MAX_WHEEL_SPEED); // Limit wheel speed to max
-    RollMotor.setSpeed(wheelSpeed); // Set roll motor speed based on wheel speed command
+
+    //hybrid bang bang implementation - hopefully sidesteps wheel's slow acceleration issues
+    if(gyroRemovedBias[2] > 0.7f || gyroRemovedBias[2] < -0.7f){ // If gyro rate is too high
+        RollMotor.setSpeed(-MAX_WHEEL_SPEED * 0.95 * gyroRemovedBias[2]/abs(gyroRemovedBias[2])); // Set roll motor speed based on gyro X, 90% of max wheel speed
+    }else{
+
+        RollMotor.setSpeed(wheelSpeed); // Set roll motor speed based on wheel speed command
+    }
 
 }
 
@@ -737,11 +784,13 @@ void StateEstimation::accelLoop(){
     float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
     lastAccelUpdate = accelLoopMicros;
 
-    thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
+    thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle\
 
-    XPos.updateAccelerometer(measuredWorldAccel[0]);
-    YPos.updateAccelerometer(measuredWorldAccel[1]);
-    ZPos.updateAccelerometer(measuredWorldAccel[2]);
+    if(gps.getGPSInfo().fixType > 3){ //Ensure RTK Fix
+        XPos.updateAccelerometer(measuredWorldAccel[0]);
+        YPos.updateAccelerometer(measuredWorldAccel[1]);
+        ZPos.updateAccelerometer(measuredWorldAccel[2]);
+    }
 
     worldPosition[0] = XPos.getPosition(); // Get X position in world frame
     worldPosition[1] = YPos.getPosition(); // Get Y position in world frame
@@ -827,6 +876,7 @@ void StateEstimation::updatePrelaunch(){
     gyroBias[0] /= PRELAUNCH_AVERAGE_COUNT; // Average gyro bias for X axis in rad/s
     gyroBias[1] /= PRELAUNCH_AVERAGE_COUNT; // Average gyro bias for Y axis in rad/s
     gyroBias[2] /= PRELAUNCH_AVERAGE_COUNT; // Average gyro bias for Z axis in rad/s
+    
 
     // Average the acceleration readings
     //accelReading[0] /= PRELAUNCH_AVERAGE_COUNT; // Average X acceleration in body frame
@@ -868,7 +918,7 @@ uint8_t StateEstimation::setVehicleState(int state){
                         return 3; // Cannot arm if sensors are not all functioning
                     }
                 }else{
-                    return 2;
+                    return 2; // Invalid transition
                 }
                 break;
             case 0: //disarm process
@@ -876,13 +926,36 @@ uint8_t StateEstimation::setVehicleState(int state){
                 XPos.reset();
                 YPos.reset();
                 ZPos.reset();
+                YPID.reset();
+                ZPID.reset();
+                YawStabilizationPID.reset();
+                PitchStabilizationPID.reset();
+                YawPID.reset();
+                PitchPID.reset();
+                RollPID.reset();
+                RollMotor.stop(); // Stop roll motor
                 vehicleState = 0; // Set vehicle state to disarmed
                 break;
             default:
                 vehicleState = state;
                 break;
         }
+    }else if(state == 69){
+        if(vehicleState != 0){
+            return 2; // Invalid transition, cannot set to testing state if not disarmed
+        }
+        vehicleState = 69; // Set vehicle state to testing state
+        XPos.begin(); // Initialize X Kalman
+        YPos.begin(); // Initialize Y Kalman
+        ZPos.begin(); // Initialize Z Kalman
     } else if (state >= 64){
+        if (vehicleState != 69){
+            return 2; // Invalid transition, cannot set to actual testing state if not in test prep
+        }
+        launchTime = millis() / 1000.0; // Set launch time to current time in seconds, to progress trajectory 
+        if(state == 68){
+            lastGimbalMisalignMicros = micros();
+        }  
         vehicleState = state; // Set vehicle state to testing states
     } else {
         return 1; // Invalid state
@@ -935,7 +1008,8 @@ void StateEstimation::computeGimbalMisalign(){
         lastGimbalMisalignMicros = micros();
         return;
     }
-    if (vehicleState == 2 && timeSinceLaunch > 0){
+
+    if ((vehicleState == 2 && timeSinceLaunch > 0 && timeSinceLaunch < GIMBAL_STABILIZATION_TIME) || vehicleState == 68)  { // If in flight state and time since launch is within gimbal stabilization time
         float dt = (float)(micros() - lastGimbalMisalignMicros) / 1000000.0f; // Convert to seconds
         lastGimbalMisalignMicros = micros(); // Update last gimbal misalign time
         gimbalForceAccumulator += getThrust() * dt;
@@ -951,8 +1025,18 @@ void StateEstimation::computeGimbalMisalign(){
         float i = getPitchYawMMOI();
         float r = getMomentArm();
 
-        gimbalMisalign[0] = asin((2 * gimbalMisalignAccumulator[0] * i)/(r * f * timeSinceLaunch * timeSinceLaunch));
-        gimbalMisalign[1] = asin((2 * gimbalMisalignAccumulator[1] * i)/(r * f * timeSinceLaunch * timeSinceLaunch));
+        float y = (2 * gimbalMisalignAccumulator[0] * i)/(r * f * gimbalMisalignTime * gimbalMisalignTime);
+        float p = (2 * gimbalMisalignAccumulator[1] * i)/(r * f * gimbalMisalignTime * gimbalMisalignTime);
+
+        if (abs(y) > 1 || abs(p) > 1) { // If gimbal misalign is outside of asin domain, do not calculate
+            return;
+        }
+
+        gimbalMisalign[0] = asin(y);
+        gimbalMisalign[1] = asin(p);
+
+        gimbalMisalign[0] = min(max(gimbalMisalign[0], -GIMBAL_LIMIT_RAD/2), GIMBAL_LIMIT_RAD/2); // Limit gimbal misalignment to +/- GIMBAL_LIMIT_RAD/2
+        gimbalMisalign[1] = min(max(gimbalMisalign[1], -GIMBAL_LIMIT_RAD/2), GIMBAL_LIMIT_RAD/2); // Limit gimbal misalignment to +/- GIMBAL_LIMIT_RAD/2
 
     }
     

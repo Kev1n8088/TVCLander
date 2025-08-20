@@ -92,8 +92,16 @@ void Telemetry::telemetryLoop(StateEstimation& state){
         // Prepare telemetry data
         sendTelemetry(state);
 
-        if (DEBUG_MODE){
-
+        if (DEBUG_MODE){    
+            // DEBUG_SERIAL.print("Yaw: ");
+            // DEBUG_SERIAL.print(state.getEulerAngle()[0]);
+            // DEBUG_SERIAL.print(" Pitch: ");
+            // DEBUG_SERIAL.print(state.getEulerAngle()[1]);
+            // DEBUG_SERIAL.print(" Roll: ");
+            // DEBUG_SERIAL.println(state.getEulerAngle()[2]);
+            if(state.getVehicleState() == 69){
+                DEBUG_SERIAL.println(state.getDt());
+            }
         }
     }   
 }
@@ -136,6 +144,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
     LINK80::KalmanData kalman;
     GPSInfo& gpsInfo = state.getGPSInfo();
 
+    float vbat = (((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER;
     switch (currentPacketType){
         case 0:
         case 4: //state telem packet
@@ -195,7 +204,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .rollCommand = state.getWheelSpeed(),
                 .YProjected = state.getPositionSetpoints()[0],
                 .ZProjected = state.getPositionSetpoints()[1],
-                .VBAT = (analogRead(VBAT_SENSE_PIN) / 1023.0f) * VBAT_DIVIDER, 
+                .VBAT = vbat, 
                 .thrust = state.getThrust(),
                 .mass = state.getMass(),
                 .MMOI = state.getPitchYawMMOI(),
@@ -276,7 +285,8 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
     TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
 
     if (DEBUG_MODE){
-        //DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
+        DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
+        //DEBUG_SERIAL.println((((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER); // Send battery voltage
     }
 }
 

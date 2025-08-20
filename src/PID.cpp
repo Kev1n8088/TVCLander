@@ -79,3 +79,10 @@ void PID::changeKs(float Kp, float Ki, float Kd){
     this->Ki = Ki;
     this->Kd = Kd;
 }
+
+void PID::reset(){
+    integral = 0.0; // Reset integral term
+    output = 0.0; // Reset output
+    previousTime = 0; // Reset previous time
+    lastError = 0.0; // Reset last error
+}

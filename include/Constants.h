@@ -51,8 +51,8 @@
 #define WORLD_GRAVITY_Z -0.0f
 
 #define PRELAUNCH_UPDATE_INTERVAL 3000 // Update interval in milliseconds before launch
-#define PRELAUNCH_AVERAGE_COUNT 30 // Number of samples to average IMU before launch
-#define PRELAUNCH_AVERAGE_INTERVAL 30 // Interval in milliseconds between samples before launch
+#define PRELAUNCH_AVERAGE_COUNT 100.0f // Number of samples to average IMU before launch
+#define PRELAUNCH_AVERAGE_INTERVAL 10 // Interval in milliseconds between samples before launch
 
 #define STATE_ESTIMATION_INTERVAL_US 500 // Interval in microseconds for state estimation updates
 
@@ -80,25 +80,25 @@
 #define PYRO_LOCKOUT_ALT 5.0
 
 #define LAUNCH_ACCEL_THRESHOLD 11.3 // m/s^2
-#define MISALIGN_CHARACTERIZATION_TIME 0.5 //s, T+ at which we stop characterizing gimbal misalign
-#define GIMBAL_STABILIZATION_TIME 2.5 //s, T+ at which we switch to stabilize mode
+#define MISALIGN_CHARACTERIZATION_TIME 0.2 //s, T+ at which we stop characterizing gimbal misalign
+#define GIMBAL_STABILIZATION_TIME 2.4 //s, T+ at which we switch to stabilize mode
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
 
-#define WHEEL_MOI 0.000004
-#define MAX_WHEEL_SPEED 400.0f // rad/s
+#define WHEEL_MOI 0.0000018
+#define MAX_WHEEL_SPEED 1600.0f // rad/s
 
 #define GPS_SERIAL_PORT Serial8
 #define GPS_BAUD_RATE 460800 // Baud rate for GPS module
 #define GPS_POLLING_INTERVAL 20 // Polling interval for GPS data in milliseconds
 
 #define VBAT_SENSE_PIN A13
-#define VBAT_DIVIDER 4.214f // Voltage divider ratio for battery voltage sensing
+#define VBAT_DIVIDER 4.214f * 3.3f // Voltage divider ratio for battery voltage sensing
 
 
 #define T_ACCEL 1.5
 #define T_DECEL 2.0
-#define T_END 8.5
+#define T_END 8.2
 #define T_COAST (T_END - T_ACCEL - T_DECEL) // Time spent coasting after acceleration and deceleration phases
 
 #endif // CONSTANTS_H
