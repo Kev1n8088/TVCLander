@@ -60,7 +60,7 @@
 #define DEBUG_BAUD 115200 // Baud rate for debug communication
 #define DEBUG_SERIAL Serial
 #define TELEMETRY_SERIAL Serial1 // Serial port for telemetry communication
-#define DEBUG_MODE 1 // Set to 1 to enable debug mode, 0 to disable
+#define DEBUG_MODE 0 // Set to 1 to enable debug mode, 0 to disable
 
 #define DATALOG_INTERVAL 20 // Interval in milliseconds for data logging
 #define TELEMETRY_INTERVAL 33 // Interval in milliseconds for telemetry updates

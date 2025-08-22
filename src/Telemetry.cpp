@@ -342,6 +342,10 @@ void Telemetry::handleReceive(StateEstimation& state) {
                         error = state.setVehicleState(64);
                         returnAck(LINK80::MessageType::WHEEL_TEST, commandID, error);
                         break;
+                    case (LINK80::MessageType::STAB_TEST):
+                        error = state.setVehicleState(65);
+                        returnAck(LINK80::MessageType::STAB_TEST, commandID, error);
+                        break;
                 }
             }
             if (unpacked.message_type >= 51 && unpacked.message_type <= 55) {
