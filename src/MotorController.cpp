@@ -39,7 +39,7 @@ void MotorController::setSpeed(float speed) {
     
     speed = min(max(speed, -MAX_WHEEL_SPEED), MAX_WHEEL_SPEED); // Limit speed to max wheel speed
 
-    int a = static_cast<int>(speed / 3.9); // Convert speed to PWM value (0-4095)
+    int a = static_cast<int>(speed / 0.409); // Convert speed to PWM value (0-4095)
     // TODO : adjust conversion based on measured values
     
     a = min(max(a, -4095), 4095); // Limit PWM value to range -4095 to 4095

@@ -52,11 +52,11 @@ void loop() {
   StateEstimate.estimateState();
   TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data
 
-  if (millis() - endSetupTime > 10000){
-    if (StateEstimate.getVehicleState() == 0) {
-      //StateEstimate.setVehicleState(69); // Set vehicle state to armed after 10 seconds
-      StateEstimate.forceVehicleState(69);
-      DEBUG_SERIAL.println("Vehicle state set to armed test");
-    }
-  }
+  // if (millis() - endSetupTime > 10000){
+  //   if (StateEstimate.getVehicleState() == 0) {
+  //     //StateEstimate.setVehicleState(69); // Set vehicle state to armed after 10 seconds
+  //     StateEstimate.forceVehicleState(69);
+  //     DEBUG_SERIAL.println("Vehicle state set to armed test");
+  //   }
+  // }
 }

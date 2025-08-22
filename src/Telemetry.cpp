@@ -100,7 +100,7 @@ void Telemetry::telemetryLoop(StateEstimation& state){
             // DEBUG_SERIAL.print(" Roll: ");
             // DEBUG_SERIAL.println(state.getEulerAngle()[2]);
             if(state.getVehicleState() == 69){
-                DEBUG_SERIAL.println(state.getDt());
+                //DEBUG_SERIAL.println(state.getDt());
             }
         }
     }   
@@ -284,10 +284,10 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
 
     TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
 
-    if (DEBUG_MODE){
-        DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
-        //DEBUG_SERIAL.println((((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER); // Send battery voltage
-    }
+    // if (DEBUG_MODE){
+    //     DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
+    //     //DEBUG_SERIAL.println((((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER); // Send battery voltage
+    // }
 }
 
 void Telemetry::returnAck(uint8_t messageType, uint8_t commandID, uint8_t errorCode) {
@@ -297,21 +297,26 @@ void Telemetry::returnAck(uint8_t messageType, uint8_t commandID, uint8_t errorC
     size_t packet_size = LINK80::packCommandAck(messageType, commandID, errorCode, telemetryPacketBuffer, millis(), downCount);
     if (packet_size > 0) {
         TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
+        // if (DEBUG_MODE){
+        //     DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
+        // }
     }
 }
 
 void Telemetry::handleReceive(StateEstimation& state) {
-    // Read all available bytes from TELEMETRY_SERIAL
     while (TELEMETRY_SERIAL.available() > 0 && packetBufferLen < RX_BUFFER_SIZE) {
         receiveBuffer[packetBufferLen++] = TELEMETRY_SERIAL.read();
     }
+
 
     // Process all complete packets
     while (packetBufferLen >= LINK80::HEADER_SIZE + LINK80::CHECKSUM_SIZE) {
         size_t packetSize = findAndExtractPacket();
         if (packetSize > 0) {
             LINK80::UnpackedPacket unpacked = LINK80::unpackPacket(receiveBuffer, packetSize);
-            if (unpacked.message_type >= 10 && unpacked.message_type <= 12) {
+            DEBUG_SERIAL.println(unpacked.message_type);
+            DEBUG_SERIAL.println(unpacked.error);
+            if (unpacked.message_type >= 10 && unpacked.message_type <= 30) {
                 // Handle command packet
                 uint8_t commandID = LINK80::parseCommand(unpacked);
                 uint8_t error = 0; // Default to no error
@@ -322,11 +327,20 @@ void Telemetry::handleReceive(StateEstimation& state) {
                         break;
                     case LINK80::MessageType::DISARM:
                         error = state.setVehicleState(0);
+                        DEBUG_SERIAL.println("Trying Disarming");
                         returnAck(LINK80::MessageType::DISARM, commandID, error);
                         break;
                     case (LINK80::MessageType::ARM):
                         error = state.setVehicleState(1);
                         returnAck(LINK80::MessageType::ARM, commandID, error);
+                        break;
+                    case (LINK80::MessageType::TEST_PREP):
+                        error = state.setVehicleState(69);
+                        returnAck(LINK80::MessageType::TEST_PREP, commandID, error);
+                        break;
+                    case (LINK80::MessageType::WHEEL_TEST):
+                        error = state.setVehicleState(64);
+                        returnAck(LINK80::MessageType::WHEEL_TEST, commandID, error);
                         break;
                 }
             }

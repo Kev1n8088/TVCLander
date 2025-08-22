@@ -19,7 +19,14 @@ public:
     enum MessageType {
         PING = 10,
         ARM = 11,
-        DISARM = 62,
+        DISARM = 12,
+        WHEEL_TEST = 20,
+        STAB_TEST = 21,
+        POS_TEST = 22,
+        TRAJ_TEST = 23,
+        MISALIGN_TEST = 24,
+        TEST_PREP = 25,
+        PYRO_TEST = 26,
         
         // Vehicle -> Ground data
         STATE_TELEMETRY = 155,
