@@ -43,7 +43,7 @@ int GPSHandler::begin() {
     busyWait(1);
 
     if(!gps.hotStart()){
-        return -5; // Return error code if hot start fails
+        //return -5; // Return error code if hot start fails
     } // Perform a hot start to get all checks
 
     busyWait(2);

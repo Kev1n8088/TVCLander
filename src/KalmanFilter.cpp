@@ -6,7 +6,7 @@ KalmanFilter::KalmanFilter(){
     lastUpdateMicros = 0;
 
     // Default noise parameters
-    R_accel = 0.25;    // Accelerometer variance (m/s^2)^2
+    R_accel = 0.5;    // Accelerometer variance (m/s^2)^2
     R_gps_pos = 0.0004;  // GPS position variance (m)^2
     R_gps_vel = 0.0009;  // GPS velocity variance (m/s)^2
     

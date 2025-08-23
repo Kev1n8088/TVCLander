@@ -24,35 +24,34 @@ void MotorController::begin() {
 }
 
 void MotorController::stop(){
-    // Stop the motor by setting both pins to LOW
-    analogWrite(ROLL_MINUS, 0);
-    analogWrite(ROLL_PLUS, 0);
+    // Stop the motor by setting both pins to HIGH (brake mode)
+    analogWrite(ROLL_MINUS, 255);
+    analogWrite(ROLL_PLUS, 255);
 }
 
-
 /**
- * @brief Sets the speed of the motor.
+ * @brief Sets the speed of the motor using slow decay mode.
  * @param speed Speed value in rad/s
  */
 void MotorController::setSpeed(float speed) {
-    // Set the speed of the motor
+    // Set the speed of the motor using slow decay (brake) mode
     
     speed = min(max(speed, -MAX_WHEEL_SPEED), MAX_WHEEL_SPEED); // Limit speed to max wheel speed
 
-    int a = static_cast<int>(speed / 6.275); // Convert speed to PWM value (0-4095)
+    int a = static_cast<int>(speed / 6.275); // Convert speed to PWM value (0-255)
     // TODO : adjust conversion based on measured values
 
     a = min(max(a, -255), 255); // Limit PWM value to range -255 to 255
 
-    //analogWriteResolution(12);
     if (a > 0) {
-        analogWrite(ROLL_MINUS, 0);
-        analogWrite(ROLL_PLUS, a); // Set speed on ROLL_PLUS pin
+        // Forward direction with slow decay
+        analogWrite(ROLL_MINUS, 255);        // Keep high-side ON
+        analogWrite(ROLL_PLUS, 255 - a);     // PWM the other side (inverted)
     } else if (a < 0) {
-        analogWrite(ROLL_PLUS, 0);
-        analogWrite(ROLL_MINUS, -a); // Set speed on ROLL_MINUS pin
+        // Reverse direction with slow decay  
+        analogWrite(ROLL_PLUS, 255);         // Keep high-side ON
+        analogWrite(ROLL_MINUS, 255 - (-a)); // PWM the other side (inverted)
     } else {
-        stop(); // Stop the motor if speed is zero
+        stop(); // Stop the motor if speed is zero (brake mode)
     }
-    //analogWriteResolution(8); // Reset resolution to 8 bits for other uses
 }

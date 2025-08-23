@@ -85,6 +85,8 @@ void StateEstimation::resetVariables(){
     angularAccelCommandVector = Quaternion(0, 0, 0, 0);
     bodyAngularAccelCommandVector = Quaternion(0, 0, 0, 0);
 
+    gps.resetHome();
+
     
     // init variables
     resetLinearVariables();
@@ -948,6 +950,7 @@ uint8_t StateEstimation::setVehicleState(int state){
                 RollPID.reset();
                 RollMotor.stop(); // Stop roll motor
                 vehicleState = 0; // Set vehicle state to disarmed
+                gps.resetHome();
                 break;
             default:
                 vehicleState = state;
