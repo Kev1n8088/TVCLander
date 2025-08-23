@@ -65,7 +65,8 @@ int StateEstimation::begin(){
     if (beginIMU0() != 0)  failMask |= 0x02;
     if (beginIMU1() != 0)  failMask |= 0x04;
     if (beginMag()  != 0)  failMask |= 0x08;
-    if (gps.begin() != 0)  failMask |= 0x10;
+    GPSStatus = gps.begin();
+    if (GPSStatus != 0)  failMask |= 0x10;
     sensorStatus = failMask; // Store the sensor status in the class variable
     return failMask;
 }

@@ -144,6 +144,9 @@ private:
     float calculateTrajectory(float target, float time);
 
 public: 
+    //Just debugging
+    int GPSStatus;
+
     StateEstimation();
     void estimateState();
     int begin();

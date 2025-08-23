@@ -178,7 +178,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .accel_x = state.getAccelCalibrated()[0],
                 .accel_y = state.getAccelCalibrated()[1],
                 .accel_z = state.getAccelCalibrated()[2],
-                .baro_altitude = 0.0, // zero for now since barometer is not used
+                .baro_altitude = (float)state.GPSStatus, // zero for now since barometer is not used
                 .gyro_bias_yaw = state.getGyroBias()[0],
                 .gyro_bias_pitch = state.getGyroBias()[1],
                 .gyro_bias_roll = state.getGyroBias()[2],
@@ -402,6 +402,8 @@ size_t Telemetry::findAndExtractPacket() {
 
 void Telemetry::handleRTCM(const LINK80::UnpackedPacket& packet, StateEstimation& state) {
     if (!packet.valid || packet.message_type < 51 || packet.message_type > 55) return;
+
+
 
     uint8_t rtcm_id = packet.data[0];
     if (rtcm_id >= 128) {
