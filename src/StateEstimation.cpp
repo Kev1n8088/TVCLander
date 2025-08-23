@@ -620,6 +620,7 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
     if(!actuate) { // If actuate is false, do not actuate servos
         YawServo.write(90);
         PitchServo.write(90); // Center servos
+        return;
     }
 
     float dt = (float)(micros() - lastActuatorMicros) / 1000000.0f; // Convert to seconds
