@@ -56,7 +56,7 @@ void GPSHandler::gpsLoop(){
         return; // Skip if not enough time has passed since last update
     }
     lastUpdateMillis = millis(); // Update last update time
-    uint64_t start = millis();
+    //uint64_t start = millis();
     gps.update(); // Update GPS data
     if(gps.isNewSnapshotAvailable()){
         DRY = true; // Set DRY flag to indicate new data is available   
@@ -186,7 +186,7 @@ XYZ GPSHandler::getDistance(positionAndVelocity pos1, positionAndVelocity pos2){
 
     result.x = pos2.altitude - pos1.altitude; // Altitude difference
     result.y = distance * sin(bearing); // east component
-    result.x = distance * cos(bearing); // north component
+    result.z = distance * cos(bearing); // north component
 
     return result;
 }

@@ -625,7 +625,7 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
         return;
     }
 
-    float dt = (float)(micros() - lastActuatorMicros) / 1000000.0f; // Convert to seconds
+    //float dt = (float)(micros() - lastActuatorMicros) / 1000000.0f; // Convert to seconds
     lastActuatorMicros = micros(); // Update last actuator time
 
     //seperate controllers instead of changing constants to prevent derivative kick
@@ -796,10 +796,10 @@ void StateEstimation::accelLoop(){
 
 
     accelLoopMicros = micros();
-    float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
+    //float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
     lastAccelUpdate = accelLoopMicros;
 
-    thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle\
+    thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
 
     if(gps.getGPSInfo().fixType > 3){ //Ensure RTK Fix
         XPos.updateAccelerometer(measuredWorldAccel[0]);
