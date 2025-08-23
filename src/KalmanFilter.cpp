@@ -28,7 +28,7 @@ void KalmanFilter::begin(float initial_pos, float initial_vel, float initial_acc
     x[2] = initial_accel;    // Acceleration
 
     // Initialize error covariance matrix with high uncertainty
-    P[0][0] = 100.0;  // Position uncertainty
+    P[0][0] = 10.0;  // Position uncertainty
     P[1][1] = 10.0;   // Velocity uncertainty
     P[2][2] = 1.0;    // Acceleration uncertainty
     
@@ -195,9 +195,9 @@ void KalmanFilter::updateAccelerometer(float acceleration) {
     
     if (dt > 0.001) {  // Minimum time step of 1ms
         predict(dt);
-        updateWithAccel(acceleration);
         lastUpdateMicros = currentTime;
     }
+    updateWithAccel(acceleration);
 }
 
 void KalmanFilter::updateGPS(float position, float velocity) {
@@ -208,9 +208,11 @@ void KalmanFilter::updateGPS(float position, float velocity) {
     
     if (dt > 0.001) {  // Minimum time step of 1ms
         predict(dt);
-        updateWithGPS(position, velocity);
         lastUpdateMicros = currentTime;
     }
+
+    
+    updateWithGPS(position, velocity);
 }
 
 float KalmanFilter::getPosition() {
