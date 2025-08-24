@@ -1,7 +1,11 @@
 #include "GPSHandler.h"
+#include "Adafruit_NeoPixel.h"
 
-DMAMEM static uint8_t gpsTXBuffer[16 * 1024];
-DMAMEM static uint8_t gpsRXBuffer[16 * 1024];
+DMAMEM static uint8_t gpsTXBuffer[1024];
+DMAMEM static uint8_t gpsRXBuffer[4 * 1024];
+
+
+Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 GPSHandler::GPSHandler() {
     GPS_SERIAL_PORT.begin(GPS_BAUD_RATE); // Initialize GPS serial port with specified baud rate
@@ -15,6 +19,11 @@ GPSHandler::GPSHandler() {
 }
 
 int GPSHandler::begin() {
+    pixels.begin();
+    pixels.setBrightness(10);
+    pixels.clear();
+    pixels.show();
+
     if(!gps.begin(GPS_SERIAL_PORT)) { // Initialize the GPS module
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("GPS initialization failed!");
@@ -46,67 +55,83 @@ int GPSHandler::begin() {
     
     busyWait(1);
 
-    if(!gps.hotStart()){
-        //return -5; // Return error code if hot start fails
-    } // Perform a hot start to get all checks
+    // if(!gps.hotStart()){
+    //     return -5; // Return error code if hot start fails
+    // } // Perform a hot start to get all checks
 
-    // Clear any accumulated data from initialization
-    gps.clearNmeaCount();
-    gps.clearRtcmCount();
+    // // Clear any accumulated data from initialization
+    // gps.clearNmeaCount();
+    // gps.clearRtcmCount();
 
     busyWait(2);
+
+    GPS_SERIAL_PORT.flush(); // Clear any remaining data in the GPS serial buffer
+
     return 0;
 }
 
 void GPSHandler::gpsLoop(){
+    pixels.fill(pixels.Color(0, 255, 0)); // Fill pixels with green color
+    pixels.show();
+
     if(lastUpdateMillis + GPS_POLLING_INTERVAL > millis()){
         //DEBUG_SERIAL.println("Skipping GPS update");
         return; // Skip if not enough time has passed since last update
     }
     lastUpdateMillis = millis(); // Update last update time
     
-    // Periodic memory cleanup every 30 seconds
-    if(millis() - lastMemoryCleanup > 30000) {
+    if(millis() - lastMemoryCleanup > 15000) {
         lastMemoryCleanup = millis();
-        gps.clearNmeaCount();
-        gps.clearRtcmCount();
+        // gps.clearNmeaCount();
+        // gps.clearRtcmCount();
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("GPS memory cleanup performed");
         }
     }
+
+    pixels.fill(pixels.Color(255, 0, 0)); // Fill pixels with red color
+    pixels.show();
     
     //uint64_t start = millis();
-    gps.update(); // Update GPS data
-    if(gps.isNewSnapshotAvailable()){
-        DRY = true; // Set DRY flag to indicate new data is available   
-        if (DEBUG_MODE) {
-            //DEBUG_SERIAL.println("New GPS data available");
-        }
-        current.latitude = gps.getLatitude(); // Get current latitude
-        current.longitude = gps.getLongitude(); // Get current longitude
-        current.altitude = gps.getAltitude(); // Get current altitude
-        current.velocityNorth = gps.getNorthVelocity(); // Get current velocity in North direction
-        current.velocityEast = gps.getEastVelocity(); // Get current velocity in East direction
-        current.velocityDown = gps.getDownVelocity(); // Get current velocity in Down direction
+    
+    // Limit GPS update time to prevent infinite loops from continuous data streams
+    
+    if (!gps.update()) {
+        return;
+        //return; // No new data, exit early
+    }
+     
+    if (DEBUG_MODE) {
+        //DEBUG_SERIAL.println("New GPS data available");
+    }
+    current.latitude = gps.getLatitude(); // Get current latitude
+    current.longitude = gps.getLongitude(); // Get current longitude
+    current.altitude = gps.getAltitude(); // Get current altitude
+    current.velocityNorth = gps.getNorthVelocity(); // Get current velocity in North direction
+    current.velocityEast = gps.getEastVelocity(); // Get current velocity in East direction
+    current.velocityDown = gps.getDownVelocity(); // Get current velocity in Down direction
 
-        gpsInfo.fixType = gps.getFixQuality(); // Get GPS fix type=
-        gpsInfo.home = home; // Set home position
-        gpsInfo.pos = current; // Set current position
+    gpsInfo.fixType = gps.getFixQuality(); // Get GPS fix type=
+    gpsInfo.home = home; // Set home position
+    gpsInfo.pos = current; // Set current position
 
-        gpsInfo.xyz = getDistance(home, current); // Calculate distance from home position
-        
-        // Get satellite info safely (GSV disabled, so use satellites used count as approximation)
-        gpsInfo.satsUsed = gps.getSatellitesUsedCount(); // Get number of satellites used for fix
-        gpsInfo.satsInView = gpsInfo.satsUsed; // Approximate since GSV is disabled for memory reasons
+    gpsInfo.xyz = getDistance(home, current); // Calculate distance from home position
+    
+    // Get satellite info safely (GSV disabled, so use satellites used count as approximation)
+    gpsInfo.satsUsed = gps.getSatellitesUsedCount(); // Get number of satellites used for fix
+    gpsInfo.satsInView = gpsInfo.satsUsed; // Approximate since GSV is disabled for memory reasons
 
-        gpsInfo.pdop = gps.getPdop(); // Get PDOP value
-        gpsInfo.timeOfWeek = gps.getTimeOfWeek(); // Get time of week in milliseconds
+    gpsInfo.pdop = gps.getPdop(); // Get PDOP value
+    gpsInfo.timeOfWeek = gps.getTimeOfWeek(); // Get time of week in milliseconds
 
-        gpsInfo.error2D = gps.get2DError(); // Get 2D error
-        gpsInfo.error3D = gps.get3DError(); // Get 3D error
+    gpsInfo.error2D = gps.get2DError(); // Get 2D error
+    gpsInfo.error3D = gps.get3DError(); // Get 3D error
 
-        gpsInfo.rtcmAge = millis() - lastRTCMMillis; // Calculate age of RTCM correction data
-    }   
+    gpsInfo.rtcmAge = millis() - lastRTCMMillis; // Calculate age of RTCM correction data
+
+
+    pixels.fill(pixels.Color(0, 0, 255)); // Fill pixels with blue color
+    pixels.show();
 
     // DEBUG_SERIAL.print("GPS update took ");
     // DEBUG_SERIAL.print(millis() - start);

@@ -22,7 +22,7 @@
 #include <set>
 #include <string>
 
-#define GPS_MAX_WAIT 15
+#define GPS_MAX_WAIT 10U
 
 typedef enum
 {

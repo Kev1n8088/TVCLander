@@ -16,7 +16,7 @@
 
 
 
-Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
+// Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 StateEstimation StateEstimate;
 Telemetry TelemetrySystem;
@@ -35,13 +35,29 @@ void setup() {
       DEBUG_SERIAL.println("Debug mode enabled");
   }
 
-  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.setBrightness(10);
-  pixels.clear();
-  pixels.show();
+  // pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
+  // pixels.setBrightness(10);
+  // pixels.clear();
+  // pixels.show();
 
+  delay(100);
+
+  // pixels.fill(pixels.Color(255, 0, 0)); // Fill pixels with red color
+  // pixels.show();
   StateEstimate.begin(); // Initialize state estimation
+
+  
+  delay(100);
+
+  // pixels.fill(pixels.Color(0, 255, 0)); // Fill pixels with green color
+  // pixels.show();
   TelemetrySystem.begin(); // Initialize telemetry system
+
+  
+  delay(100);
+
+  // pixels.fill(pixels.Color(0, 0, 255)); // Fill pixels with blue color
+  // pixels.show();
   //StateEstimate.forceVehicleState(1); // Set initial vehicle state to disarmed
 
   lastNeopixTime = millis(); // Record the end time of setup for debugging purposes
@@ -55,8 +71,8 @@ void loop() {
     lastNeopixTime = millis();
     // Cycle through hues over time (0-65535 range for Adafruit NeoPixel HSV)
     uint16_t hue = (millis() * 5) % 65536; // Complete cycle every ~22 minutes
-    pixels.fill(pixels.ColorHSV(hue, 255, 255)); // Full saturation and brightness
-    pixels.show();
+    // pixels.fill(pixels.ColorHSV(hue, 255, 255)); // Full saturation and brightness
+    // pixels.show();
   }
 
   // if (millis() - endSetupTime > 10000){

@@ -5,10 +5,10 @@
 #include "StateEstimation.h"
 
 EXTMEM uint8_t telemetryBuffer[MAX_DATA_LOGS * BYTES_PER_LOG];
-DMAMEM static uint8_t serialRxBuffer[32 * 1024];
-DMAMEM static uint8_t serialTxBuffer[32 * 1024];
+DMAMEM static uint8_t serialRxBuffer[2 * 1024];
+DMAMEM static uint8_t serialTxBuffer[2 * 1024];
 
-DMAMEM static uint8_t telemetryPacketBuffer[LINK80::MAX_PACKET_SIZE * 10];
+DMAMEM static uint8_t telemetryPacketBuffer[LINK80::MAX_PACKET_SIZE * 8];
 
 enum PacketType {
     PACKET_TELEMETRY = 0x01,
@@ -25,7 +25,7 @@ struct RTCMBuffer {
 
 DMAMEM static RTCMBuffer rtcmBuffers[128]; // RTCM ID is uint8_t
 
-DMAMEM static uint8_t receiveBuffer[LINK80::MAX_PACKET_SIZE * 30]; // Buffer for received packets
+DMAMEM static uint8_t receiveBuffer[LINK80::MAX_PACKET_SIZE * 8]; // Buffer for received packets
 
 /**
  * @brief Telemetry constructor. Initializes member variables.
@@ -36,7 +36,7 @@ Telemetry::Telemetry(){
     oldVehicleState = 0;
     telemetryBufferUsed = 0;
     SDGood = false;
-    logFileName = "flightlog.bin";
+    strcpy(logFileName, "flightlog.bin");
     downCount = 0;
     packetBufferLen = 0;
     currentPacketType = 0;
@@ -62,8 +62,8 @@ void Telemetry::begin(){
         }
     }
 
-    TELEMETRY_SERIAL.addMemoryForWrite(serialRxBuffer, sizeof(serialRxBuffer));
-    TELEMETRY_SERIAL.addMemoryForRead(serialTxBuffer, sizeof(serialTxBuffer));
+    TELEMETRY_SERIAL.addMemoryForRead(serialRxBuffer, sizeof(serialRxBuffer));   // RX buffer for reading
+    TELEMETRY_SERIAL.addMemoryForWrite(serialTxBuffer, sizeof(serialTxBuffer)); // TX buffer for writing
 
 }
 
@@ -282,7 +282,11 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
         return;
     }
 
-    TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
+    if(TELEMETRY_SERIAL.availableForWrite() > packet_size){
+
+        TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size); //ensure nonblocking
+
+    }
 
     // if (DEBUG_MODE){
     //     DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
@@ -296,7 +300,10 @@ void Telemetry::returnAck(uint8_t messageType, uint8_t commandID, uint8_t errorC
 
     packet_size = LINK80::packCommandAck(messageType, commandID, errorCode, telemetryPacketBuffer, millis(), downCount);
     if (packet_size > 0) {
-        TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
+
+        if (TELEMETRY_SERIAL.availableForWrite() > packet_size) {
+            TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
+        }
         // if (DEBUG_MODE){
         //     DEBUG_SERIAL.write(telemetryPacketBuffer, packet_size);
         // }
@@ -496,23 +503,6 @@ void Telemetry::handleRTCM(const LINK80::UnpackedPacket& packet, StateEstimation
         return;
     }
 
-    // Check for dropped RTCM packets
-    if(packet.message_type == 55){
-        uint8_t expectedNextID = (newestRTCMID + 1) % 128;
-        if (newestRTCMID != 0 && rtcm_id != expectedNextID) {
-            // Calculate how many packets were dropped
-            uint8_t droppedCount;
-            if (rtcm_id > expectedNextID) {
-                droppedCount = rtcm_id - expectedNextID;
-            } else {
-                // Handle wrap-around case
-                droppedCount = (128 - expectedNextID) + rtcm_id;
-            }
-            numRTCMDropped += droppedCount;
-        }
-        newestRTCMID = rtcm_id;
-    }
-
     size_t fragment_len = packet.data_length - 1; // Exclude RTCM ID byte
     
     // Validate fragment length
@@ -551,7 +541,7 @@ void Telemetry::handleRTCM(const LINK80::UnpackedPacket& packet, StateEstimation
         buf.active = false;
         buf.length = 0;
         buf.lastUpdateMillis = 0;
-        returnAck(121, 0, 0);
+        //returnAck(121, 0, 0);
     }
 
     // Cleanup stale buffers

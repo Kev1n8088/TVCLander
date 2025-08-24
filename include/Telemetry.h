@@ -19,7 +19,7 @@ private:
     int currentPacketType; //Increments and used to determine packet type; Order: State, Sensor, Lander, GPS, State, Kalman, Lander
     
     size_t telemetryBufferUsed;
-    String logFileName;
+    char logFileName[64];  // Fixed size buffer instead of String
 
     uint8_t newestRTCMID;
 
@@ -61,7 +61,10 @@ public:
     Telemetry();
     void begin();
     void telemetryLoop(StateEstimation& state);
-    void setLogFileName(const String& name) { logFileName = name; } // Setter for file name
+    void setLogFileName(const char* name) { 
+        strncpy(logFileName, name, sizeof(logFileName) - 1);
+        logFileName[sizeof(logFileName) - 1] = '\0'; // Ensure null termination
+    }
 };
 
 #endif // TELEMETRY_H

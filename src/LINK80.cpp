@@ -385,17 +385,18 @@ void LINK80::applyCOBSEncoding(uint8_t* data, size_t data_size) {
 
 void LINK80::applyCOBSDecoding(uint8_t* data, size_t data_size, uint8_t first_cobs_offset) {
     size_t cobs_pos = first_cobs_offset;
-    
-    while (cobs_pos < data_size) {
+    size_t max_iterations = data_size + 8; // Safety margin
+    size_t iterations = 0;
+    while (cobs_pos < data_size && iterations < max_iterations) {
         uint8_t offset = data[cobs_pos];
         data[cobs_pos] = PACKET_HEADER; // Restore original 0xAA
-        
         if (offset == 0) {
             break; // No more encoded bytes
         }
-        
         cobs_pos += offset;
+        iterations++;
     }
+    // Optional: If iterations >= max_iterations, could log an error or set a flag for corrupted data
 }
 
 uint32_t LINK80::calculateCRC32(const uint8_t* data, size_t length) {
