@@ -8,10 +8,6 @@ DMAMEM static uint8_t gpsRXBuffer[4 * 1024];
 Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 GPSHandler::GPSHandler() {
-    GPS_SERIAL_PORT.begin(GPS_BAUD_RATE); // Initialize GPS serial port with specified baud rate
-    GPS_SERIAL_PORT.addMemoryForRead(gpsRXBuffer, sizeof(gpsRXBuffer)); // Allocate memory for reading GPS data
-    GPS_SERIAL_PORT.addMemoryForWrite(gpsTXBuffer, sizeof(gpsTXBuffer)); // Allocate memory for writing GPS data
-    resetHome();
     homeAverageCount = 0;
     lastRTCMMillis = 0; // Initialize last RTCM correction time 
     lastMemoryCleanup = 0; // Initialize memory cleanup timer
@@ -19,6 +15,11 @@ GPSHandler::GPSHandler() {
 }
 
 int GPSHandler::begin() {
+    GPS_SERIAL_PORT.begin(GPS_BAUD_RATE); // Initialize GPS serial port with specified baud rate
+    GPS_SERIAL_PORT.addMemoryForRead(gpsRXBuffer, sizeof(gpsRXBuffer)); // Allocate memory for reading GPS data
+    GPS_SERIAL_PORT.addMemoryForWrite(gpsTXBuffer, sizeof(gpsTXBuffer)); // Allocate memory for writing GPS data
+    resetHome();
+
     pixels.begin();
     pixels.setBrightness(10);
     pixels.clear();
@@ -80,14 +81,14 @@ void GPSHandler::gpsLoop(){
     }
     lastUpdateMillis = millis(); // Update last update time
     
-    if(millis() - lastMemoryCleanup > 15000) {
-        lastMemoryCleanup = millis();
-        // gps.clearNmeaCount();
-        // gps.clearRtcmCount();
-        if (DEBUG_MODE) {
-            DEBUG_SERIAL.println("GPS memory cleanup performed");
-        }
-    }
+    // if(millis() - lastMemoryCleanup > 15000) {
+    //     lastMemoryCleanup = millis();
+    //     // gps.clearNmeaCount();
+    //     // gps.clearRtcmCount();
+    //     if (DEBUG_MODE) {
+    //         DEBUG_SERIAL.println("GPS memory cleanup performed");
+    //     }
+    // }
 
     pixels.fill(pixels.Color(255, 0, 0)); // Fill pixels with red color
     pixels.show();

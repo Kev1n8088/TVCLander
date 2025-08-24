@@ -36,7 +36,6 @@ Telemetry::Telemetry(){
     oldVehicleState = 0;
     telemetryBufferUsed = 0;
     SDGood = false;
-    strcpy(logFileName, "flightlog.bin");
     downCount = 0;
     packetBufferLen = 0;
     currentPacketType = 0;
@@ -48,6 +47,7 @@ Telemetry::Telemetry(){
  * @brief Initializes telemetry serial, SD card, and debug serial.
  */
 void Telemetry::begin(){
+    strcpy(logFileName, "flightlog.bin");
     TELEMETRY_SERIAL.begin(TELEMETRY_BAUD); // Initialize telemetry serial port with specified baud rate
     pinMode(VBAT_SENSE_PIN, INPUT); // Set VBAT sense pin as input
     if (!SD.begin()) { // Initialize SD card

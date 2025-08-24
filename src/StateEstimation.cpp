@@ -40,8 +40,6 @@ StateEstimation::StateEstimation()
         ZPos(),
         RollMotor()
 {
-    SPI.begin();
-    resetVariables();
 }
 
 /**
@@ -49,6 +47,9 @@ StateEstimation::StateEstimation()
  * @return Bitmask indicating which sensors failed to initialize.
  */
 int StateEstimation::begin(){
+    SPI.begin();
+    resetVariables();
+    
     pinMode(IMU0_DRY_PIN, INPUT); // Set the dry pin for SCH1 as input
     pinMode(LAND_CONTINUITY, INPUT); // Set the land continuity pin as input
     pinMode(LAND_PYRO, OUTPUT); // Set the land pyro pin as output
@@ -469,8 +470,8 @@ void StateEstimation::estimateState(){
                 lastIMUReadMicros = micros(); // Update last IMU read time
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                processGPSData();
+                //accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+                //processGPSData();
                 RollMotor.stop(); // Stop roll motor
                 actuateServos(false); // center servos without actuating them
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired

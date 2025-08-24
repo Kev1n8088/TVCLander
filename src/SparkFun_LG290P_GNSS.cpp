@@ -147,12 +147,13 @@ bool LG290P::begin(HardwareSerial &serialPort, Print *parserDebug, Print *parser
 
 bool LG290P::beginAutoBaudDetect(HardwareSerial &serialPort, int rxPin, int txPin, Print *parserDebug /* = nullptr */, Print *parserError /* = &Serial */)
 {
-    // serialPort.setRxBufferSize(4096);
+    //serialPort.setRxBufferSize(4096);
 
     for (int baud: {460800, 921600, 230400, 115200, 9600})
     {
         debugPrintf("Trying baud rate %d...", baud);
-        serialPort.begin(baud, SERIAL_8N1);
+        //serialPort.begin(baud, SERIAL_8N1, rxPin, txPin);
+        serialPort.begin(baud);
         if (begin(serialPort, parserDebug, parserError))
             return true;
     }
@@ -167,7 +168,7 @@ bool LG290P::isConnected()
     // Try up to 10 seconds
     for (unsigned long start = millis(); millis() - start < 10000;)
     {
-        if (sendOkCommand("PQTMUNIQID", "", 1500))
+        if (sendOkCommand("PQTMUNIQID"))
             return true;
     }
     return false;
@@ -626,7 +627,7 @@ bool LG290P::setFixInterval(uint16_t fixInterval)
 {
     char parms[50];
     snprintf(parms, sizeof parms, ",W,%d", fixInterval);
-    return sendOkCommand("PQTMCFGFIXRATE", parms, 1500) && hotStart();
+    return sendOkCommand("PQTMCFGFIXRATE", parms) && hotStart();
 }
 
 bool LG290P::setMessageRate(const char *msgName, int rate, int msgVer)
@@ -680,7 +681,7 @@ bool LG290P::getMessageRate(const char *msgName, int &rate, int msgVer)
 {
     char parms[50];
     snprintf(parms, sizeof parms, msgVer == -1 ? ",R,%s" : ",R,%s,%d", msgName, msgVer);
-    bool ret = sendOkCommand("PQTMCFGMSGRATE", parms, 1500);
+    bool ret = sendOkCommand("PQTMCFGMSGRATE", parms);
     if (ret)
     {
         auto packet = getCommandResponse();
@@ -840,7 +841,7 @@ bool LG290P::genericReset(const char *resetCmd)
     clearAll();
 
     // Do a software reset, wait for reconnection, then rescan which messages are enabled
-    return sendCommandNoResponse(resetCmd, 1500) && isConnected() && scanForMsgsEnabled();
+    return sendCommandNoResponse(resetCmd) && isConnected() && scanForMsgsEnabled();
 }
 
 bool LG290P::setConstellations(bool enableGPS, bool enableGLONASS, bool enableGalileo, bool enableBDS, bool enableQZSS,
@@ -849,7 +850,7 @@ bool LG290P::setConstellations(bool enableGPS, bool enableGLONASS, bool enableGa
     char parms[50];
     snprintf(parms, sizeof parms, ",W,%d,%d,%d,%d,%d,%d", enableGPS, enableGLONASS, 
         enableGalileo, enableBDS, enableQZSS, enableNavIC);
-    return sendOkCommand("PQTMCFGCNST", parms, 1500) && save() && hotStart();
+    return sendOkCommand("PQTMCFGCNST", parms) && save() && hotStart();
 }
 
 bool LG290P::disableEngine()
@@ -864,7 +865,7 @@ bool LG290P::enableEngine()
 
 bool LG290P::save()
 {
-    return sendOkCommand("PQTMSAVEPAR", "", 1500);
+    return sendOkCommand("PQTMSAVEPAR");
 }
 
 bool LG290P::factoryRestore()
