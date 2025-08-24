@@ -22,7 +22,7 @@ StateEstimation StateEstimate;
 Telemetry TelemetrySystem;
 
 
-uint64_t endSetupTime = 0; // Variable to store the end time of setup for debugging purposes
+uint64_t lastNeopixTime = 0; // Variable to store the end time of NeoPixel updates
 
 void setup() {
   // put your setup code here, to run once
@@ -40,17 +40,24 @@ void setup() {
   pixels.clear();
   pixels.show();
 
-  DEBUG_SERIAL.println(StateEstimate.begin()); // Initialize state estimation
+  StateEstimate.begin(); // Initialize state estimation
   TelemetrySystem.begin(); // Initialize telemetry system
   //StateEstimate.forceVehicleState(1); // Set initial vehicle state to disarmed
-  DEBUG_SERIAL.println("Setup complete1");
 
-  endSetupTime = millis(); // Record the end time of setup for debugging purposes
+  lastNeopixTime = millis(); // Record the end time of setup for debugging purposes
 }
 
 void loop() {
   StateEstimate.estimateState();
   TelemetrySystem.telemetryLoop(StateEstimate); // Call telemetry loop to log and send data
+
+  if (millis() - lastNeopixTime > 100) {
+    lastNeopixTime = millis();
+    // Cycle through hues over time (0-65535 range for Adafruit NeoPixel HSV)
+    uint16_t hue = (millis() * 5) % 65536; // Complete cycle every ~22 minutes
+    pixels.fill(pixels.ColorHSV(hue, 255, 255)); // Full saturation and brightness
+    pixels.show();
+  }
 
   // if (millis() - endSetupTime > 10000){
   //   if (StateEstimate.getVehicleState() == 0) {

@@ -328,6 +328,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 updatePrelaunch(); // Update gyro biases and orientation before launch
                 RollMotor.stop(); // Stop roll motor
+                actuateServos(false); // center servos without actuating them
             }
             break;
         case 1: // Armed State. < 30 seconds before launch, do not update gyro bias.
@@ -355,7 +356,6 @@ void StateEstimation::estimateState(){
                 actuateWheel(); 
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
-            // TODO: Lock servos in center position
             if (timeSinceLaunch > MISALIGN_CHARACTERIZATION_TIME){
                 vehicleState = 3;
             }
@@ -371,7 +371,6 @@ void StateEstimation::estimateState(){
                 actuateWheel(); 
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
-            // TODO: insert code for updating servos
             if (timeSinceLaunch > GIMBAL_STABILIZATION_TIME){
                 vehicleState = 4;
             }
@@ -501,8 +500,8 @@ void StateEstimation::GPSLoop(){
 
     if(gps.getGPSInfo().fixType > 3){
         XPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[0]); // Update X position and velocity from GPS data
-        YPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Y position and velocity from GPS data
-        ZPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Z position and velocity from GPS data
+        YPos.updateGPS(adjustedGPSPosition[1], adjustedGPSVelocity[1]); // Update Y position and velocity from GPS data
+        ZPos.updateGPS(adjustedGPSPosition[2], adjustedGPSVelocity[2]); // Update Z position and velocity from GPS data
     }
 
     // Update world frame position and velocity from GPS data

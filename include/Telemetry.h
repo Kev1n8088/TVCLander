@@ -7,8 +7,6 @@
 #include "Constants.h"
 #include "LINK80.h"
 
-#define RX_BUFFER_SIZE LINK80::MAX_PACKET_SIZE * 10
-
 class Telemetry{
 private:
     uint64_t lastLogMillis;
@@ -43,7 +41,23 @@ private:
 
 
     uint32_t crc32(const uint8_t* data, size_t length);
+
+    
+    size_t packet_size;
+
+    LINK80::StateTelemetry stateTelem;
+    LINK80::SensorData sensors;
+    LINK80::LanderData lander;
+    LINK80::GPSData gps;
+    LINK80::KalmanData kalman;
+
+    size_t headerIndex;
+
+    float vbat;
+
 public:
+    float numRTCMDropped;
+
     Telemetry();
     void begin();
     void telemetryLoop(StateEstimation& state);

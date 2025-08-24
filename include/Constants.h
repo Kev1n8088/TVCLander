@@ -63,7 +63,7 @@
 #define DEBUG_MODE 0 // Set to 1 to enable debug mode, 0 to disable
 
 #define DATALOG_INTERVAL 20 // Interval in milliseconds for data logging
-#define TELEMETRY_INTERVAL 33 // Interval in milliseconds for telemetry updates
+#define TELEMETRY_INTERVAL 50 // Interval in milliseconds for telemetry updates
 
 #define FLOATS_PER_LOG (1 + 4 + 3 + 3 + 3 + 3 + 3 + 3 + 2 + 2 + 1 + 1) // 1 time + 4 quat + 3 accel + 3 vel + 3 pos + 3 rawAccel + 3 rawGyro + 3 gyroBias + 2 attSet + 2 servoCmd + 1 thrust + 1 rwSpeed
 #define BYTES_PER_LOG (sizeof(uint32_t) + (FLOATS_PER_LOG * sizeof(float)) + 3 * sizeof(int)) // separator + floats + 2 * int

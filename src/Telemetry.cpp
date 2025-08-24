@@ -5,9 +5,10 @@
 #include "StateEstimation.h"
 
 EXTMEM uint8_t telemetryBuffer[MAX_DATA_LOGS * BYTES_PER_LOG];
-static uint8_t serialBuffer[32 * 1024];
+DMAMEM static uint8_t serialRxBuffer[32 * 1024];
+DMAMEM static uint8_t serialTxBuffer[32 * 1024];
 
-static uint8_t telemetryPacketBuffer[LINK80::MAX_PACKET_SIZE];
+DMAMEM static uint8_t telemetryPacketBuffer[LINK80::MAX_PACKET_SIZE * 10];
 
 enum PacketType {
     PACKET_TELEMETRY = 0x01,
@@ -22,9 +23,9 @@ struct RTCMBuffer {
     uint32_t lastUpdateMillis;
 };
 
-static RTCMBuffer rtcmBuffers[128]; // RTCM ID is uint8_t
+DMAMEM static RTCMBuffer rtcmBuffers[128]; // RTCM ID is uint8_t
 
-static uint8_t receiveBuffer[600]; // Buffer for received packets
+DMAMEM static uint8_t receiveBuffer[LINK80::MAX_PACKET_SIZE * 30]; // Buffer for received packets
 
 /**
  * @brief Telemetry constructor. Initializes member variables.
@@ -39,6 +40,8 @@ Telemetry::Telemetry(){
     downCount = 0;
     packetBufferLen = 0;
     currentPacketType = 0;
+    newestRTCMID = 0;
+    numRTCMDropped = 0;
 }
 
 /**
@@ -58,8 +61,9 @@ void Telemetry::begin(){
             DEBUG_SERIAL.println("SD Card initialized successfully!");
         }
     }
-    
-    TELEMETRY_SERIAL.addMemoryForWrite(serialBuffer, sizeof(serialBuffer));
+
+    TELEMETRY_SERIAL.addMemoryForWrite(serialRxBuffer, sizeof(serialRxBuffer));
+    TELEMETRY_SERIAL.addMemoryForRead(serialTxBuffer, sizeof(serialTxBuffer));
 
 }
 
@@ -74,11 +78,10 @@ void Telemetry::telemetryLoop(StateEstimation& state){
 
     if (currentMillis - lastLogMillis >= DATALOG_INTERVAL) {
         lastLogMillis = currentMillis;
-        int vehicleState = state.getVehicleState();
 
-        if (vehicleState != oldVehicleState) {
-            oldVehicleState = vehicleState;
-            if (vehicleState == 7) {
+        if (state.getVehicleState() != oldVehicleState) {
+            oldVehicleState = state.getVehicleState();
+            if (state.getVehicleState() == 7) {
                 //dumpToSD();
             }
         }
@@ -135,16 +138,10 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
     currentPacketType = (currentPacketType + 1) % 7;
     //currentPacketType = 2; //testing
 
-    size_t packet_size = 0;
-
-    LINK80::StateTelemetry stateTelem;
-    LINK80::SensorData sensors;
-    LINK80::LanderData lander;
-    LINK80::GPSData gps;
-    LINK80::KalmanData kalman;
+    packet_size = 0;
     GPSInfo& gpsInfo = state.getGPSInfo();
 
-    float vbat = (((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER;
+    vbat = (((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER;
     switch (currentPacketType){
         case 0:
         case 4: //state telem packet
@@ -178,7 +175,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .accel_x = state.getAccelCalibrated()[0],
                 .accel_y = state.getAccelCalibrated()[1],
                 .accel_z = state.getAccelCalibrated()[2],
-                .baro_altitude = (float)state.GPSStatus, // zero for now since barometer is not used
+                .baro_altitude = numRTCMDropped, //flex float because baro is not used
                 .gyro_bias_yaw = state.getGyroBias()[0],
                 .gyro_bias_pitch = state.getGyroBias()[1],
                 .gyro_bias_roll = state.getGyroBias()[2],
@@ -297,7 +294,7 @@ void Telemetry::returnAck(uint8_t messageType, uint8_t commandID, uint8_t errorC
     
     downCount = (downCount + 1) % 4294967296; // Increment downCount and wrap around at 2^32
 
-    size_t packet_size = LINK80::packCommandAck(messageType, commandID, errorCode, telemetryPacketBuffer, millis(), downCount);
+    packet_size = LINK80::packCommandAck(messageType, commandID, errorCode, telemetryPacketBuffer, millis(), downCount);
     if (packet_size > 0) {
         TELEMETRY_SERIAL.write(telemetryPacketBuffer, packet_size);
         // if (DEBUG_MODE){
@@ -307,56 +304,99 @@ void Telemetry::returnAck(uint8_t messageType, uint8_t commandID, uint8_t errorC
 }
 
 void Telemetry::handleReceive(StateEstimation& state) {
-    while (TELEMETRY_SERIAL.available() > 0 && packetBufferLen < RX_BUFFER_SIZE) {
+    // Read incoming data with proper bounds checking
+    while (TELEMETRY_SERIAL.available() > 0 && packetBufferLen < sizeof(receiveBuffer)) {
         receiveBuffer[packetBufferLen++] = TELEMETRY_SERIAL.read();
     }
 
+    // If buffer is full and we still have data, clear it to prevent lockup
+    if (packetBufferLen >= sizeof(receiveBuffer) && TELEMETRY_SERIAL.available() > 0) {
+        packetBufferLen = 0;
+        // Clear remaining serial data
+        while (TELEMETRY_SERIAL.available() > 0) {
+            TELEMETRY_SERIAL.read();
+        }
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.println("RX buffer overflow - cleared");
+        }
+        return;
+    }
 
-    // Process all complete packets
-    while (packetBufferLen >= LINK80::HEADER_SIZE + LINK80::CHECKSUM_SIZE) {
-        size_t packetSize = findAndExtractPacket();
-        if (packetSize > 0) {
-            LINK80::UnpackedPacket unpacked = LINK80::unpackPacket(receiveBuffer, packetSize);
-            DEBUG_SERIAL.println(unpacked.message_type);
-            DEBUG_SERIAL.println(unpacked.error);
-            if (unpacked.message_type >= 10 && unpacked.message_type <= 30) {
-                // Handle command packet
-                uint8_t commandID = LINK80::parseCommand(unpacked);
-                uint8_t error = 0; // Default to no error
-                switch (unpacked.message_type){
-                    case LINK80::MessageType::PING:
-                        // Respond to ping with a command ack
-                        returnAck(LINK80::MessageType::PING, commandID, 0);
-                        break;
-                    case LINK80::MessageType::DISARM:
-                        error = state.setVehicleState(0);
-                        DEBUG_SERIAL.println("Trying Disarming");
-                        returnAck(LINK80::MessageType::DISARM, commandID, error);
-                        break;
-                    case (LINK80::MessageType::ARM):
-                        error = state.setVehicleState(1);
-                        returnAck(LINK80::MessageType::ARM, commandID, error);
-                        break;
-                    case (LINK80::MessageType::TEST_PREP):
-                        error = state.setVehicleState(69);
-                        returnAck(LINK80::MessageType::TEST_PREP, commandID, error);
-                        break;
-                    case (LINK80::MessageType::WHEEL_TEST):
-                        error = state.setVehicleState(64);
-                        returnAck(LINK80::MessageType::WHEEL_TEST, commandID, error);
-                        break;
-                    case (LINK80::MessageType::STAB_TEST):
-                        error = state.setVehicleState(65);
-                        returnAck(LINK80::MessageType::STAB_TEST, commandID, error);
-                        break;
+    // Process all complete packets with safety counter
+    uint8_t processedPackets = 0;
+    const uint8_t MAX_PACKETS_PER_LOOP = 10; // Prevent infinite loops
+    
+    while (packetBufferLen >= LINK80::HEADER_SIZE + LINK80::CHECKSUM_SIZE && processedPackets < MAX_PACKETS_PER_LOOP) {
+        packet_size = findAndExtractPacket();
+        if (packet_size > 0) {
+            // Additional safety check
+            if (packet_size > sizeof(receiveBuffer)) {
+                if (DEBUG_MODE) {
+                    DEBUG_SERIAL.println("Invalid packet size detected - clearing buffer");
                 }
+                packetBufferLen = 0;
+                break;
             }
-            if (unpacked.message_type >= 51 && unpacked.message_type <= 55) {
-                handleRTCM(unpacked, state);
+            
+            LINK80::UnpackedPacket unpacked = LINK80::unpackPacket(receiveBuffer, packet_size);
+            
+            if (DEBUG_MODE) {
+                DEBUG_SERIAL.print("MSG Type: ");
+                DEBUG_SERIAL.print(unpacked.message_type);
+                DEBUG_SERIAL.print(" Error: ");
+                DEBUG_SERIAL.println(unpacked.error);
             }
+            
+            if (unpacked.valid) {
+                if (unpacked.message_type >= 10 && unpacked.message_type <= 30) {
+                    // Handle command packet
+                    uint8_t commandID = LINK80::parseCommand(unpacked);
+                    uint8_t error = 0; // Default to no error
+                    switch (unpacked.message_type){
+                        case LINK80::MessageType::PING:
+                            // Respond to ping with a command ack
+                            returnAck(LINK80::MessageType::PING, commandID, 0);
+                            break;
+                        case LINK80::MessageType::DISARM:
+                            error = state.setVehicleState(0);
+                            DEBUG_SERIAL.println("Trying Disarming");
+                            returnAck(LINK80::MessageType::DISARM, commandID, error);
+                            break;
+                        case (LINK80::MessageType::ARM):
+                            error = state.setVehicleState(1);
+                            returnAck(LINK80::MessageType::ARM, commandID, error);
+                            break;
+                        case (LINK80::MessageType::TEST_PREP):
+                            error = state.setVehicleState(69);
+                            returnAck(LINK80::MessageType::TEST_PREP, commandID, error);
+                            break;
+                        case (LINK80::MessageType::WHEEL_TEST):
+                            error = state.setVehicleState(64);
+                            returnAck(LINK80::MessageType::WHEEL_TEST, commandID, error);
+                            break;
+                        case (LINK80::MessageType::STAB_TEST):
+                            error = state.setVehicleState(65);
+                            returnAck(LINK80::MessageType::STAB_TEST, commandID, error);
+                            break;
+                    }
+                }
+                if (unpacked.message_type >= 51 && unpacked.message_type <= 55) {
+                    handleRTCM(unpacked, state);
+                }
+            } else if (DEBUG_MODE) {
+                DEBUG_SERIAL.println("Invalid packet received");
+            }
+            
             // Remove processed packet from buffer
-            memmove(receiveBuffer, receiveBuffer + packetSize, packetBufferLen - packetSize);
-            packetBufferLen -= packetSize;
+            if (packet_size <= packetBufferLen) {
+                memmove(receiveBuffer, receiveBuffer + packet_size, packetBufferLen - packet_size);
+                packetBufferLen -= packet_size;
+            } else {
+                // Safety: clear buffer if packet size is inconsistent
+                packetBufferLen = 0;
+            }
+            
+            processedPackets++;
         } else {
             break; // No complete packet found
         }
@@ -365,7 +405,7 @@ void Telemetry::handleReceive(StateEstimation& state) {
 
 size_t Telemetry::findAndExtractPacket() {
     // Look for packet header
-    size_t headerIndex = SIZE_MAX;
+    headerIndex = SIZE_MAX;
     for (size_t i = 0; i < packetBufferLen; ++i) {
         if (receiveBuffer[i] == LINK80::PACKET_HEADER) {
             headerIndex = i;
@@ -373,8 +413,13 @@ size_t Telemetry::findAndExtractPacket() {
         }
     }
     if (headerIndex == SIZE_MAX) {
-        // No header found, clear buffer
-        packetBufferLen = 0;
+        // No header found, clear buffer if it's getting full
+        if (packetBufferLen > sizeof(receiveBuffer) * 0.75) {
+            packetBufferLen = 0;
+            if (DEBUG_MODE) {
+                DEBUG_SERIAL.println("No header found - buffer cleared");
+            }
+        }
         return 0;
     }
 
@@ -390,7 +435,34 @@ size_t Telemetry::findAndExtractPacket() {
     }
 
     uint8_t payloadLength = receiveBuffer[1];
+    
+    // Validate payload length to prevent buffer overflow
+    const uint8_t MAX_REASONABLE_PAYLOAD = 200; // Adjust based on your protocol
+    if (payloadLength > MAX_REASONABLE_PAYLOAD) {
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.print("Invalid payload length: ");
+            DEBUG_SERIAL.println(payloadLength);
+        }
+        // Remove the bad header and try to find next one
+        if (packetBufferLen > 1) {
+            memmove(receiveBuffer, receiveBuffer + 1, packetBufferLen - 1);
+            packetBufferLen--;
+        } else {
+            packetBufferLen = 0;
+        }
+        return 0;
+    }
+    
     size_t expectedPacketSize = LINK80::HEADER_SIZE + payloadLength;
+
+    // Additional safety check against buffer overflow
+    if (expectedPacketSize > sizeof(receiveBuffer)) {
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.println("Packet too large for buffer");
+        }
+        packetBufferLen = 0; // Clear buffer
+        return 0;
+    }
 
     // Check if we have the complete packet
     if (packetBufferLen < expectedPacketSize) {
@@ -406,15 +478,50 @@ size_t Telemetry::findAndExtractPacket() {
 void Telemetry::handleRTCM(const LINK80::UnpackedPacket& packet, StateEstimation& state) {
     if (!packet.valid || packet.message_type < 51 || packet.message_type > 55) return;
 
-
+    // Validate packet has at least 1 byte for RTCM ID
+    if (packet.data_length < 1) {
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.println("RTCM packet too short");
+        }
+        return;
+    }
 
     uint8_t rtcm_id = packet.data[0];
     if (rtcm_id >= 128) {
         // Invalid RTCM ID, ignore packet
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.print("Invalid RTCM ID: ");
+            DEBUG_SERIAL.println(rtcm_id);
+        }
         return;
     }
 
+    // Check for dropped RTCM packets
+    if(packet.message_type == 55){
+        uint8_t expectedNextID = (newestRTCMID + 1) % 128;
+        if (newestRTCMID != 0 && rtcm_id != expectedNextID) {
+            // Calculate how many packets were dropped
+            uint8_t droppedCount;
+            if (rtcm_id > expectedNextID) {
+                droppedCount = rtcm_id - expectedNextID;
+            } else {
+                // Handle wrap-around case
+                droppedCount = (128 - expectedNextID) + rtcm_id;
+            }
+            numRTCMDropped += droppedCount;
+        }
+        newestRTCMID = rtcm_id;
+    }
+
     size_t fragment_len = packet.data_length - 1; // Exclude RTCM ID byte
+    
+    // Validate fragment length
+    if (fragment_len > 1024) { // Reasonable max fragment size
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.println("RTCM fragment too large");
+        }
+        return;
+    }
 
     RTCMBuffer& buf = rtcmBuffers[rtcm_id];
     if (!buf.active) {
@@ -422,10 +529,18 @@ void Telemetry::handleRTCM(const LINK80::UnpackedPacket& packet, StateEstimation
         buf.active = true;
     }
 
-    // Append fragment
+    // Append fragment with bounds checking
     if (buf.length + fragment_len <= sizeof(buf.data)) {
         memcpy(buf.data + buf.length, packet.data + 1, fragment_len);
         buf.length += fragment_len;
+    } else {
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.println("RTCM buffer overflow - discarding");
+        }
+        // Reset buffer on overflow
+        buf.active = false;
+        buf.length = 0;
+        return;
     }
 
     buf.lastUpdateMillis = millis();
@@ -436,10 +551,12 @@ void Telemetry::handleRTCM(const LINK80::UnpackedPacket& packet, StateEstimation
         buf.active = false;
         buf.length = 0;
         buf.lastUpdateMillis = 0;
+        returnAck(121, 0, 0);
     }
 
+    // Cleanup stale buffers
     for (int i = 0; i < 128; ++i) {
-        if (rtcmBuffers[i].active && millis() - rtcmBuffers[i].lastUpdateMillis > 3000) { // 1 second timeout
+        if (rtcmBuffers[i].active && millis() - rtcmBuffers[i].lastUpdateMillis > 3000) { // 3 second timeout
             rtcmBuffers[i].active = false;
             rtcmBuffers[i].length = 0;
             rtcmBuffers[i].lastUpdateMillis = 0;

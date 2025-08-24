@@ -167,7 +167,7 @@ bool LG290P::isConnected()
     // Try up to 10 seconds
     for (unsigned long start = millis(); millis() - start < 10000;)
     {
-        if (sendOkCommand("PQTMUNIQID"))
+        if (sendOkCommand("PQTMUNIQID", "", 1500))
             return true;
     }
     return false;
@@ -626,7 +626,7 @@ bool LG290P::setFixInterval(uint16_t fixInterval)
 {
     char parms[50];
     snprintf(parms, sizeof parms, ",W,%d", fixInterval);
-    return sendOkCommand("PQTMCFGFIXRATE", parms) && hotStart();
+    return sendOkCommand("PQTMCFGFIXRATE", parms, 1500) && hotStart();
 }
 
 bool LG290P::setMessageRate(const char *msgName, int rate, int msgVer)
@@ -680,7 +680,7 @@ bool LG290P::getMessageRate(const char *msgName, int &rate, int msgVer)
 {
     char parms[50];
     snprintf(parms, sizeof parms, msgVer == -1 ? ",R,%s" : ",R,%s,%d", msgName, msgVer);
-    bool ret = sendOkCommand("PQTMCFGMSGRATE", parms);
+    bool ret = sendOkCommand("PQTMCFGMSGRATE", parms, 1500);
     if (ret)
     {
         auto packet = getCommandResponse();
@@ -840,7 +840,7 @@ bool LG290P::genericReset(const char *resetCmd)
     clearAll();
 
     // Do a software reset, wait for reconnection, then rescan which messages are enabled
-    return sendCommandNoResponse(resetCmd) && isConnected() && scanForMsgsEnabled();
+    return sendCommandNoResponse(resetCmd, 1500) && isConnected() && scanForMsgsEnabled();
 }
 
 bool LG290P::setConstellations(bool enableGPS, bool enableGLONASS, bool enableGalileo, bool enableBDS, bool enableQZSS,
@@ -849,7 +849,7 @@ bool LG290P::setConstellations(bool enableGPS, bool enableGLONASS, bool enableGa
     char parms[50];
     snprintf(parms, sizeof parms, ",W,%d,%d,%d,%d,%d,%d", enableGPS, enableGLONASS, 
         enableGalileo, enableBDS, enableQZSS, enableNavIC);
-    return sendOkCommand("PQTMCFGCNST", parms) && save() && hotStart();
+    return sendOkCommand("PQTMCFGCNST", parms, 1500) && save() && hotStart();
 }
 
 bool LG290P::disableEngine()
@@ -864,7 +864,7 @@ bool LG290P::enableEngine()
 
 bool LG290P::save()
 {
-    return sendOkCommand("PQTMSAVEPAR");
+    return sendOkCommand("PQTMSAVEPAR", "", 1500);
 }
 
 bool LG290P::factoryRestore()

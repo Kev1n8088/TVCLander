@@ -41,6 +41,7 @@ private:
     bool DRY;
     int homeAverageCount;
     uint32_t lastRTCMMillis; // Last time RTCM correction was received
+    uint32_t lastMemoryCleanup; // Last time GPS memory was cleaned
 
     positionAndVelocity home; // Home position for GPS
     positionAndVelocity current;
@@ -62,6 +63,7 @@ public:
     }
 
     void sendRTCMCorrection(const uint8_t* data, size_t length);
+    void forceMemoryCleanup(); // Force immediate memory cleanup
 
 };
 

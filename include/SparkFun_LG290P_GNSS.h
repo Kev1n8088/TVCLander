@@ -22,6 +22,8 @@
 #include <set>
 #include <string>
 
+#define GPS_MAX_WAIT 15
+
 typedef enum
 {
     LG290P_RESULT_OK = 0,
@@ -314,14 +316,14 @@ class LG290P
      * @param newBaud the new baud rate of the port
      * @return true if the new baud rate was set correctly
      */
-    bool setPortBaudrate(int port, uint32_t newBaud, uint16_t maxWaitMs = 10);
+    bool setPortBaudrate(int port, uint32_t newBaud, uint16_t maxWaitMs = GPS_MAX_WAIT);
 
     /**
      * @brief Set the baud rate of the current port
      * @param newBaud the new baud rate of the port
      * @return true if the new baud rate was set correctly
      */
-    bool setBaudrate(uint32_t newBaud, uint16_t maxWaitMs = 10);
+    bool setBaudrate(uint32_t newBaud, uint16_t maxWaitMs = GPS_MAX_WAIT);
 
     /**
      * @brief Get information about the designated UART
@@ -334,7 +336,7 @@ class LG290P
      * @return true if the port info was acquired without problem
      */
     bool getPortInfo(int port, uint32_t &newBaud, uint8_t &dataBits, uint8_t &parity, uint8_t &stop,
-                     uint8_t &flowControl, uint16_t maxWaitMs = 10);
+                     uint8_t &flowControl, uint16_t maxWaitMs = GPS_MAX_WAIT);
 
     /**
      * @brief Enable or disable the protocols available for input on the specified port
@@ -690,7 +692,7 @@ class LG290P
      * @param maxWaitMs (Optional) Maximum wait time in milliseconds, default is 10 ms.
      * @return true if the command was sent successfully, false otherwise.
      */
-    bool sendCommandNoResponse(const char *command, uint16_t maxWaitMs = 10);
+    bool sendCommandNoResponse(const char *command, uint16_t maxWaitMs = GPS_MAX_WAIT);
 
     /**
      * @brief Sends a full command line to the device.
@@ -700,7 +702,7 @@ class LG290P
      * @param maxWaitMs (Optional) Maximum wait time in milliseconds, default is 10 ms.
      * @return true if the command was sent successfully, false otherwise.
      */
-    bool sendCommandLine(const char *command, uint16_t maxWaitMs = 10);
+    bool sendCommandLine(const char *command, uint16_t maxWaitMs = GPS_MAX_WAIT);
 
     /**
      * @brief Retrieves the response to the last successful command issued.
@@ -718,7 +720,7 @@ class LG290P
      * @param maxWaitMs (Optional) Maximum wait time in milliseconds, default is 10 ms.
      * @return true if an OK response is received, and "OK" string is received after the first comma
      */
-    bool sendOkCommand(const char *command, const char *parms = "", uint16_t maxWaitMs = 10);
+    bool sendOkCommand(const char *command, const char *parms = "", uint16_t maxWaitMs = GPS_MAX_WAIT);
 
     /** Satellites **/
 

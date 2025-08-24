@@ -1,7 +1,7 @@
 #include "GPSHandler.h"
 
-static uint8_t gpsTXBuffer[16 * 1024];
-static uint8_t gpsRXBuffer[16 * 1024];
+DMAMEM static uint8_t gpsTXBuffer[16 * 1024];
+DMAMEM static uint8_t gpsRXBuffer[16 * 1024];
 
 GPSHandler::GPSHandler() {
     GPS_SERIAL_PORT.begin(GPS_BAUD_RATE); // Initialize GPS serial port with specified baud rate
@@ -10,6 +10,7 @@ GPSHandler::GPSHandler() {
     resetHome();
     homeAverageCount = 0;
     lastRTCMMillis = 0; // Initialize last RTCM correction time 
+    lastMemoryCleanup = 0; // Initialize memory cleanup timer
     // Constructor implementation can be empty if no initialization is needed
 }
 
@@ -31,20 +32,27 @@ int GPSHandler::begin() {
     busyWait(1);
 
     if(!gps.setConstellations(true, true, true, true, true, true)){
-        //return -3;
+        return -3;
     } // Enable all constellations
     
     busyWait(1);
 
     if(!gps.setFixInterval(100)){
-        //return -4; // Return error code if setting fix interval fails
+        return -4; // Return error code if setting fix interval fails
     }
+    
+    // Disable satellite tracking messages to prevent memory accumulation
+    gps.setMessageRate("GSV", 0); // Disable satellite info messages
     
     busyWait(1);
 
     if(!gps.hotStart()){
         //return -5; // Return error code if hot start fails
     } // Perform a hot start to get all checks
+
+    // Clear any accumulated data from initialization
+    gps.clearNmeaCount();
+    gps.clearRtcmCount();
 
     busyWait(2);
     return 0;
@@ -56,6 +64,17 @@ void GPSHandler::gpsLoop(){
         return; // Skip if not enough time has passed since last update
     }
     lastUpdateMillis = millis(); // Update last update time
+    
+    // Periodic memory cleanup every 30 seconds
+    if(millis() - lastMemoryCleanup > 30000) {
+        lastMemoryCleanup = millis();
+        gps.clearNmeaCount();
+        gps.clearRtcmCount();
+        if (DEBUG_MODE) {
+            DEBUG_SERIAL.println("GPS memory cleanup performed");
+        }
+    }
+    
     //uint64_t start = millis();
     gps.update(); // Update GPS data
     if(gps.isNewSnapshotAvailable()){
@@ -75,8 +94,10 @@ void GPSHandler::gpsLoop(){
         gpsInfo.pos = current; // Set current position
 
         gpsInfo.xyz = getDistance(home, current); // Calculate distance from home position
-        gpsInfo.satsInView = gps.getSatellitesInViewCount(); // Get number of satellites in view
+        
+        // Get satellite info safely (GSV disabled, so use satellites used count as approximation)
         gpsInfo.satsUsed = gps.getSatellitesUsedCount(); // Get number of satellites used for fix
+        gpsInfo.satsInView = gpsInfo.satsUsed; // Approximate since GSV is disabled for memory reasons
 
         gpsInfo.pdop = gps.getPdop(); // Get PDOP value
         gpsInfo.timeOfWeek = gps.getTimeOfWeek(); // Get time of week in milliseconds
@@ -184,9 +205,18 @@ XYZ GPSHandler::getDistance(positionAndVelocity pos1, positionAndVelocity pos2){
     double x = cos(lat1_rad) * sin(lat2_rad) - sin(lat1_rad) * cos(lat2_rad) * cos(delta_lon);
     double bearing = atan2(y, x);
 
-    result.x = pos2.altitude - pos1.altitude; // Altitude difference
+    result.x = pos2.altitude - pos1.altitude + 0.2; // Altitude difference
     result.y = distance * sin(bearing); // east component
     result.z = distance * cos(bearing); // north component
 
     return result;
+}
+
+void GPSHandler::forceMemoryCleanup() {
+    gps.clearNmeaCount();
+    gps.clearRtcmCount();
+    lastMemoryCleanup = millis();
+    if (DEBUG_MODE) {
+        DEBUG_SERIAL.println("GPS memory force cleanup performed");
+    }
 }
