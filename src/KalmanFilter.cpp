@@ -193,9 +193,9 @@ void KalmanFilter::updateAccelerometer(float acceleration) {
     uint64_t currentTime = micros();
     float dt = (currentTime - lastUpdateMicros) / 1000000.0;  // Convert to seconds
     
+    updateWithAccel(acceleration);
     if (dt > 0.001) {  // Minimum time step of 1ms
         predict(dt);
-        updateWithAccel(acceleration);
         lastUpdateMicros = currentTime;
     }
 }
@@ -206,9 +206,10 @@ void KalmanFilter::updateGPS(float position, float velocity) {
     uint64_t currentTime = micros();
     float dt = (currentTime - lastUpdateMicros) / 1000000.0;  // Convert to seconds
     
+    updateWithGPS(position, velocity);
+    
     if (dt > 0.001) {  // Minimum time step of 1ms
         predict(dt);
-        updateWithGPS(position, velocity);
         lastUpdateMicros = currentTime;
     }
 }

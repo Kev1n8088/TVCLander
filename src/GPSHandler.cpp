@@ -4,16 +4,16 @@ static uint8_t gpsTXBuffer[16 * 1024];
 static uint8_t gpsRXBuffer[16 * 1024];
 
 GPSHandler::GPSHandler() {
-    GPS_SERIAL_PORT.begin(GPS_BAUD_RATE); // Initialize GPS serial port with specified baud rate
-    GPS_SERIAL_PORT.addMemoryForRead(gpsRXBuffer, sizeof(gpsRXBuffer)); // Allocate memory for reading GPS data
-    GPS_SERIAL_PORT.addMemoryForWrite(gpsTXBuffer, sizeof(gpsTXBuffer)); // Allocate memory for writing GPS data
-    resetHome();
     homeAverageCount = 0;
     lastRTCMMillis = 0; // Initialize last RTCM correction time 
     // Constructor implementation can be empty if no initialization is needed
 }
 
 int GPSHandler::begin() {
+    GPS_SERIAL_PORT.begin(GPS_BAUD_RATE); // Initialize GPS serial port with specified baud rate
+    GPS_SERIAL_PORT.addMemoryForRead(gpsRXBuffer, sizeof(gpsRXBuffer)); // Allocate memory for reading GPS data
+    GPS_SERIAL_PORT.addMemoryForWrite(gpsTXBuffer, sizeof(gpsTXBuffer)); // Allocate memory for writing GPS data
+    resetHome();
     if(!gps.begin(GPS_SERIAL_PORT)) { // Initialize the GPS module
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("GPS initialization failed!");
@@ -184,9 +184,9 @@ XYZ GPSHandler::getDistance(positionAndVelocity pos1, positionAndVelocity pos2){
     double x = cos(lat1_rad) * sin(lat2_rad) - sin(lat1_rad) * cos(lat2_rad) * cos(delta_lon);
     double bearing = atan2(y, x);
 
-    result.x = pos2.altitude - pos1.altitude; // Altitude difference
+    result.x = pos2.altitude - pos1.altitude + 0.2; // Altitude difference
     result.y = distance * sin(bearing); // east component
-    result.x = distance * cos(bearing); // north component
+    result.z = distance * cos(bearing); // north component
 
     return result;
 }

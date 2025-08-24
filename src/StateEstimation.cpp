@@ -12,11 +12,10 @@
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_LIS2MDL.h>
 #include "GPSHandler.h"
+#include <PWMServo.h>
 
-
-    
-Servo PitchServo;
-Servo YawServo;
+PWMServo PitchServo;
+PWMServo YawServo;
 
 /**
  * @brief Constructor for StateEstimation. Initializes sensors and SPI.
@@ -39,8 +38,6 @@ StateEstimation::StateEstimation()
         ZPos(),
         RollMotor()
 {
-    SPI.begin();
-    resetVariables();
 }
 
 /**
@@ -48,6 +45,8 @@ StateEstimation::StateEstimation()
  * @return Bitmask indicating which sensors failed to initialize.
  */
 int StateEstimation::begin(){
+    SPI.begin();
+    resetVariables();
     pinMode(IMU0_DRY_PIN, INPUT); // Set the dry pin for SCH1 as input
     pinMode(LAND_CONTINUITY, INPUT); // Set the land continuity pin as input
     pinMode(LAND_PYRO, OUTPUT); // Set the land pyro pin as output
@@ -499,8 +498,8 @@ void StateEstimation::GPSLoop(){
 
     if(gps.getGPSInfo().fixType > 3){
         XPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[0]); // Update X position and velocity from GPS data
-        YPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Y position and velocity from GPS data
-        ZPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[1]); // Update Z position and velocity from GPS data
+        YPos.updateGPS(adjustedGPSPosition[1], adjustedGPSVelocity[1]); // Update Y position and velocity from GPS data
+        ZPos.updateGPS(adjustedGPSPosition[2], adjustedGPSVelocity[2]); // Update Z position and velocity from GPS data
     }
 
     // Update world frame position and velocity from GPS data
@@ -620,9 +619,10 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
     if(!actuate) { // If actuate is false, do not actuate servos
         YawServo.write(90);
         PitchServo.write(90); // Center servos
+        return;
     }
 
-    float dt = (float)(micros() - lastActuatorMicros) / 1000000.0f; // Convert to seconds
+    //float dt = (float)(micros() - lastActuatorMicros) / 1000000.0f; // Convert to seconds
     lastActuatorMicros = micros(); // Update last actuator time
 
     //seperate controllers instead of changing constants to prevent derivative kick
@@ -793,10 +793,10 @@ void StateEstimation::accelLoop(){
 
 
     accelLoopMicros = micros();
-    float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
+    //float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
     lastAccelUpdate = accelLoopMicros;
 
-    thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle\
+    thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
 
     if(gps.getGPSInfo().fixType > 3){ //Ensure RTK Fix
         XPos.updateAccelerometer(measuredWorldAccel[0]);
@@ -935,6 +935,7 @@ uint8_t StateEstimation::setVehicleState(int state){
                 break;
             case 0: //disarm process
                 resetVariables(); // Reset all variables to initial conditions
+                gps.resetHome();
                 XPos.reset();
                 YPos.reset();
                 ZPos.reset();

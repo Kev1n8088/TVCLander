@@ -248,6 +248,9 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .velUncX = state.getVelocityUncertainty()[0],
                 .velUncY = state.getVelocityUncertainty()[1],
                 .velUncZ = state.getVelocityUncertainty()[2],
+                .posUncX = state.getPositionUncertainty()[0],
+                .posUncY = state.getPositionUncertainty()[1],
+                .posUncZ = state.getPositionUncertainty()[2],
                 .accelMeasuredX = state.getMeasuredRotatedAccel()[0],
                 .accelMeasuredY = state.getMeasuredRotatedAccel()[1],
                 .accelMeasuredZ = state.getMeasuredRotatedAccel()[2],
@@ -322,12 +325,12 @@ void Telemetry::handleReceive(StateEstimation& state) {
                 uint8_t error = 0; // Default to no error
                 switch (unpacked.message_type){
                     case LINK80::MessageType::PING:
-                        // Respond to ping with a command ack
+                        state.getGPSHandler().resetHome();
                         returnAck(LINK80::MessageType::PING, commandID, 0);
                         break;
                     case LINK80::MessageType::DISARM:
                         error = state.setVehicleState(0);
-                        DEBUG_SERIAL.println("Trying Disarming");
+                        //DEBUG_SERIAL.println("Trying Disarming");
                         returnAck(LINK80::MessageType::DISARM, commandID, error);
                         break;
                     case (LINK80::MessageType::ARM):
@@ -345,6 +348,18 @@ void Telemetry::handleReceive(StateEstimation& state) {
                     case (LINK80::MessageType::STAB_TEST):
                         error = state.setVehicleState(65);
                         returnAck(LINK80::MessageType::STAB_TEST, commandID, error);
+                        break;
+                    case (LINK80::MessageType::POS_TEST):
+                        error = state.setVehicleState(66);
+                        returnAck(LINK80::MessageType::POS_TEST, commandID, error);
+                        break;
+                    case (LINK80::MessageType::TRAJ_TEST):
+                        error = state.setVehicleState(67);
+                        returnAck(LINK80::MessageType::TRAJ_TEST, commandID, error);
+                        break;
+                    case (LINK80::MessageType::MISALIGN_TEST):
+                        error = state.setVehicleState(68);
+                        returnAck(LINK80::MessageType::MISALIGN_TEST, commandID, error);
                         break;
                 }
             }
