@@ -31,13 +31,13 @@ int GPSHandler::begin() {
     busyWait(1);
 
     if(!gps.setConstellations(true, true, true, true, true, true)){
-        //return -3;
+        return -3;
     } // Enable all constellations
     
     busyWait(1);
 
     if(!gps.setFixInterval(100)){
-        //return -4; // Return error code if setting fix interval fails
+        return -4; // Return error code if setting fix interval fails
     }
     
     busyWait(1);
@@ -102,7 +102,7 @@ void GPSHandler::setCurrentAsHome() {
         }
         return; // Do not set home if current position is invalid
     }
-    if(gps.getFixQuality() < 4){
+    if(gps.getFixQuality() != 4){
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("GPS fix quality is insufficient to set home position");
         }

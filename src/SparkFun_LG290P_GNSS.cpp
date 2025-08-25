@@ -239,16 +239,16 @@ bool LG290P::update(byte incoming)
     if (_printParserTransitions)
     {
         startState = _sempParse->state;
-        startName = LG290PGetStateName(_sempParse);
+        startName = LG290PGetStateName(_sempParse); // no timing issues
     }
 
     // Update the parser state based on the incoming byte
-    sempParseNextByte(_sempParse, incoming);
+    sempParseNextByte(_sempParse, incoming); // no timing issues
 
     // Get the current state name
     if (_printParserTransitions)
     {
-        endName = LG290PGetStateName(_sempParse);
+        endName = LG290PGetStateName(_sempParse); // no timing issues
 
         // Display the parser state transition
         debugPrintf("LG290P Lib: 0x%02x (%c), crc: 0x%08x, state: %s --> %s", incoming,
@@ -633,7 +633,7 @@ bool LG290P::setMessageRate(const char *msgName, int rate, int msgVer)
 {
     char parms[50];
     snprintf(parms, sizeof parms, msgVer == -1 ? ",W,%s,%d" : ",W,%s,%d,%d", msgName, rate, msgVer);
-    bool ret = sendOkCommand("PQTMCFGMSGRATE", parms);
+    bool ret = sendOkCommand("PQTMCFGMSGRATE", parms, 10);
 
     // We internally track whether certain important sentences are enabled
     if (ret)

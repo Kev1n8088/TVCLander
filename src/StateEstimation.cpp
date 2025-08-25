@@ -26,13 +26,13 @@ StateEstimation::StateEstimation()
       bmp(),
       lis2mdl(12345), 
       gps(),
-      PitchPID(12,0,6,10000,0),
-        YawPID(12,0,6,10000,0),
-        RollPID(0.02,0,0.005,10000,0.5),
-        PitchStabilizationPID(12,0,6,10000,0),
-        YawStabilizationPID(12,0,6,10000,0),
-        YPID(0.3,0.0001,0.2,10000,0.01),
-        ZPID(0.3,0.0001,0.2,10000,0.01),
+      PitchPID(12,0,6,1000,0),
+        YawPID(12,0,6,1000,0),
+        RollPID(0.02,0,0.005,1000,0.5),
+        PitchStabilizationPID(12,0,6,1000,0),
+        YawStabilizationPID(12,0,6,1000,0),
+        YPID(0.3,0.0001,0.2,1000,0.01, 50.0),
+        ZPID(0.3,0.0001,0.2,1000,0.01, 50.0),
         XPos(),
         YPos(),
         ZPos(),
@@ -496,7 +496,7 @@ void StateEstimation::GPSLoop(){
     adjustedGPSVelocity[1] = gps.getGPSInfo().pos.velocityEast - GPSVelocityWorld.c; // Adjust GPS velocity for lever arm and orientation
     adjustedGPSVelocity[2] = gps.getGPSInfo().pos.velocityNorth - GPSVelocityWorld.d; // Adjust GPS velocity for lever arm and orientation
 
-    if(gps.getGPSInfo().fixType > 3){
+    if(gps.getGPSInfo().fixType > 3){ //Keep estimating even if we lost RTK fix - just use rtk float
         XPos.updateGPS(adjustedGPSPosition[0], adjustedGPSVelocity[0]); // Update X position and velocity from GPS data
         YPos.updateGPS(adjustedGPSPosition[1], adjustedGPSVelocity[1]); // Update Y position and velocity from GPS data
         ZPos.updateGPS(adjustedGPSPosition[2], adjustedGPSVelocity[2]); // Update Z position and velocity from GPS data
@@ -580,25 +580,25 @@ void StateEstimation::PIDLoop(){
     positionSetpoint[0] = calculateTrajectory(Y_TARGET, timeSinceLaunch); // Calculate Y position setpoint based on trajectory
     positionSetpoint[1] = calculateTrajectory(Z_TARGET, timeSinceLaunch); // Calculate Z position setpoint based on trajectory
 
-    if(vehicleState == 66){
-        // In stabilization test state, set position setpoints to zero
+    if(vehicleState == 66 || vehicleState == 65){
+        // In stabilization and position hold test state, set position setpoints to zero
         positionSetpoint[0] = 0.0f; // Y position setpoint
         positionSetpoint[1] = 0.0f; // Z position setpoint
     }
 
-    YPID.compute(positionSetpoint[0], worldPosition[1], 0, false);
-    ZPID.compute(positionSetpoint[1], worldPosition[2], 0, false);
+    YPID.compute(positionSetpoint[0], worldPosition[1]);
+    ZPID.compute(positionSetpoint[1], worldPosition[2]);
 
     attitudeSetpoint[0] = min(max(YPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
     attitudeSetpoint[1] = -min(max(ZPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
 
-    YawPID.compute(attitudeSetpoint[0], getEulerAngle()[0], 0, false);
-    PitchPID.compute(attitudeSetpoint[1], getEulerAngle()[1], 0, false);
+    YawPID.compute(attitudeSetpoint[0], getEulerAngle()[0]);
+    PitchPID.compute(attitudeSetpoint[1], getEulerAngle()[1]);
 
-    YawStabilizationPID.compute(0, getEulerAngle()[0], 0, false);
-    PitchStabilizationPID.compute(0, getEulerAngle()[1], 0, false);
+    YawStabilizationPID.compute(0, getEulerAngle()[0]);
+    PitchStabilizationPID.compute(0, getEulerAngle()[1]);
 
-    RollPID.compute(0, gyroRemovedBias[2], 0, false);
+    RollPID.compute(0, gyroRemovedBias[2]);
 
 }
 
@@ -798,7 +798,7 @@ void StateEstimation::accelLoop(){
 
     thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
 
-    if(gps.getGPSInfo().fixType > 3){ //Ensure RTK Fix
+    if(gps.getGPSInfo().fixType > 3){ //Ensure RTK Fix or RTK float
         XPos.updateAccelerometer(measuredWorldAccel[0]);
         YPos.updateAccelerometer(measuredWorldAccel[1]);
         ZPos.updateAccelerometer(measuredWorldAccel[2]);
@@ -918,7 +918,7 @@ uint8_t StateEstimation::setVehicleState(int state){
         switch (state){
             case 1: // armed process
                 if (vehicleState == 0){
-                    if(sensorStatus == 0 && gps.getGPSInfo().fixType > 3){ // allow arm with RTKfix or RTK float, and all sensors functioning
+                    if(sensorStatus == 0 && gps.getGPSInfo().fixType == 4){ // allow arm with RTKfix, and all sensors functioning
                         if(getPyroCont() == false){ // Check if pyro continuity is not detected
                             return 4; // Cannot arm if pyro continuity is not detected
                         }

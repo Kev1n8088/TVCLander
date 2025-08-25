@@ -30,10 +30,7 @@ private:
 
 
     void dumpToSD();
-    void dataLog(float timeSec, float quaternion[4], float worldAccel[3],
-                 float worldVelocity[3], float worldPosition[3], float rawAccel[3],
-                float rawGyro[3], float gyroBias[3], float attitudeSetpoint[2], float servoCommand[2], 
-                float thrust, float reactionWheelSpeed, int vehicleState, int sensorStatus, int SDGood);
+    void dataLog(StateEstimation& state);
     void sendTelemetry(StateEstimation& state);
     void returnAck(uint8_t commandType, uint8_t commandId, uint8_t errorCode);
 

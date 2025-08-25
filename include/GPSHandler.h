@@ -6,18 +6,18 @@
 #include "Constants.h"
 
 typedef struct positionAndVelocity {
-        float latitude;
-        float longitude;
-        float altitude;
-        float velocityNorth;
-        float velocityEast;
-        float velocityDown;
+        double latitude;
+        double longitude;
+        double altitude;
+        double velocityNorth;
+        double velocityEast;
+        double velocityDown;
 } positionAndVelocity;
 
 typedef struct XYZ { // Falcon 9 convention
-    float x;
-    float y;
-    float z;
+    double x;
+    double y;
+    double z;
 } XYZ;
 
 typedef struct GPSInfo{
