@@ -142,6 +142,9 @@ private:
     void GPSLoop();
     void firePyroWhenReady();
     float calculateTrajectory(float target, float time);
+    float calculateTrajectoryVelocity(float target, float time);
+
+    void updateKalmansByError();
 
 public: 
     //Just debugging

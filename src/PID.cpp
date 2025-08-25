@@ -10,8 +10,9 @@
  * @param dt Time interval in microseconds
  * @param integralMax Maximum value for the integral term
  * @param N Filter coefficient for derivative filtering (higher = less filtering). 0 means no filter
+ * @param adaptiveFiltering Whether to use adaptive filtering for the derivative
  */
-PID::PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax, float N){
+PID::PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax, float N, bool adaptiveFiltering){
     this->Kp = Kp;
     this->Ki = Ki;
     this->Kd = Kd;
@@ -23,14 +24,17 @@ PID::PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax, floa
     this->lastError = 0.0;
     this->N = N;
     this->filteredDerivative = 0.0;
+    this->adaptiveFiltering = adaptiveFiltering;
 }
 
 /**
  * @brief Compute the PID output at set dt interval
  * @param setpoint Desired value
  * @param measuredValue Current value
+ * @param derivative Optional externally provided derivative (if useExternalDerivative is true). Should be derivative of setpoint - measuredValue
+ * @param useExternalDerivative Whether to use the externally provided derivative
  */
-void PID::compute(float setpoint, float measuredValue){
+void PID::compute(float setpoint, float measuredValue, float derivative, bool useExternalDerivative){
     if(previousTime == 0){
         previousTime = micros(); // Initialize previous time if not set
         return; // Skip first computation
@@ -44,6 +48,15 @@ void PID::compute(float setpoint, float measuredValue){
     previousTime = micros();
 
     float error = setpoint - measuredValue;
+    float usedN = N;
+    if(adaptiveFiltering){
+        if (error < 0.5){
+            usedN = N / 10.0; // Aggressive filtering for small errors
+        }else if (error < 1.0){
+            usedN = N / 5.0;
+        }
+    }
+
     float timeInSeconds = time / 1000000.0; // convert to seconds
 
     // Calculate raw derivative
@@ -52,11 +65,15 @@ void PID::compute(float setpoint, float measuredValue){
     // Apply derivative filter using first-order low-pass filter
     // filteredDerivative(k) = (N * rawDerivative(k) + filteredDerivative(k-1)) / (N + 1)
     // This is equivalent to the discrete form of the continuous filter: N/(s+N)
-    if (N > 0) {
-        filteredDerivative = (N * rawDerivative + filteredDerivative) / (N + 1.0);
+    if (usedN > 0) {
+        filteredDerivative = (usedN * rawDerivative + filteredDerivative) / (usedN + 1.0);
     } else {
         // If N = 0, no filtering (use raw derivative)
         filteredDerivative = rawDerivative;
+    }
+
+    if(useExternalDerivative){
+        filteredDerivative = derivative;
     }
 
     lastError = error;
@@ -67,9 +84,6 @@ void PID::compute(float setpoint, float measuredValue){
     
     // Calculate PID output using filtered derivative
     output = Kp * error + integral + Kd * filteredDerivative;
-
-    // Limit output to a certain range if needed
-    // output = constrain(output, min_output, max_output);
 }
 
 /**

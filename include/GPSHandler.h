@@ -50,6 +50,9 @@ private:
     void busyWait(int seconds);
     
 public:
+    float lastUpdateTime;
+    float updateInterval;
+
     GPSHandler();
     int begin();
     void gpsLoop();
@@ -63,6 +66,9 @@ public:
 
     void sendRTCMCorrection(const uint8_t* data, size_t length);
 
+    float getUpdateInterval() const {
+        return updateInterval;
+    }
 };
 
 #endif // GPSHANDLER_H

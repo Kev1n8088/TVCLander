@@ -6,6 +6,8 @@ static uint8_t gpsRXBuffer[16 * 1024];
 GPSHandler::GPSHandler() {
     homeAverageCount = 0;
     lastRTCMMillis = 0; // Initialize last RTCM correction time 
+    lastUpdateTime = 0;
+    updateInterval = 100;
     // Constructor implementation can be empty if no initialization is needed
 }
 
@@ -56,10 +58,12 @@ void GPSHandler::gpsLoop(){
         return; // Skip if not enough time has passed since last update
     }
     lastUpdateMillis = millis(); // Update last update time
-    uint64_t start = millis();
     gps.update(); // Update GPS data
     if(gps.isNewSnapshotAvailable()){
-        DRY = true; // Set DRY flag to indicate new data is available   
+        updateInterval = millis() - lastUpdateTime; // logs update interval
+        lastUpdateTime = millis();
+
+        DRY = true; // Set DRY flag to indicate new data is available
         if (DEBUG_MODE) {
             //DEBUG_SERIAL.println("New GPS data available");
         }
@@ -190,3 +194,4 @@ XYZ GPSHandler::getDistance(positionAndVelocity pos1, positionAndVelocity pos2){
 
     return result;
 }
+

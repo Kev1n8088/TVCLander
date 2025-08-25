@@ -14,6 +14,7 @@ private:
     float lastError;
     float N; // Filter coefficient for derivative filtering
     float filteredDerivative; // Filtered derivative value
+    bool adaptiveFiltering;
 
 public:
     /**
@@ -25,9 +26,9 @@ public:
      * @param integralMax Maximum value for the integral term
      * @param N Filter coefficient (default 100, higher = less filtering, 0 = no filtering)
      */
-    PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax, float N = 100.0);
-    
-    void compute(float setpoint, float measuredValue);
+    PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax, float N = 100.0, bool adaptiveFiltering = false);
+
+    void compute(float setpoint, float measuredValue, float derivative=0, bool useExternalDerivative=false);
     void changeKs(float Kp, float Ki, float Kd);
     void setFilterCoefficient(float N);
     float getFilterCoefficient();

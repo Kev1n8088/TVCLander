@@ -166,7 +166,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .accel_x = state.getAccelCalibrated()[0],
                 .accel_y = state.getAccelCalibrated()[1],
                 .accel_z = state.getAccelCalibrated()[2],
-                .baro_altitude = (float)state.GPSStatus, // zero for now since barometer is not used
+                .baro_altitude = state.getGPSHandler().getUpdateInterval(), // zero for now since barometer is not used
                 .gyro_bias_yaw = state.getGyroBias()[0],
                 .gyro_bias_pitch = state.getGyroBias()[1],
                 .gyro_bias_roll = state.getGyroBias()[2],
@@ -510,7 +510,7 @@ void Telemetry::dataLog(StateEstimation& state) {
         .accel_x = state.getAccelCalibrated()[0],
         .accel_y = state.getAccelCalibrated()[1],
         .accel_z = state.getAccelCalibrated()[2],
-        .baro_altitude = (float)state.GPSStatus,
+        .baro_altitude = state.getGPSHandler().getUpdateInterval(),
         .gyro_bias_yaw = state.getGyroBias()[0],
         .gyro_bias_pitch = state.getGyroBias()[1],
         .gyro_bias_roll = state.getGyroBias()[2],

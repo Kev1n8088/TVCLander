@@ -31,8 +31,8 @@ StateEstimation::StateEstimation()
         RollPID(0.02,0,0.005,1000,0.5),
         PitchStabilizationPID(12,0,6,1000,0),
         YawStabilizationPID(12,0,6,1000,0),
-        YPID(0.3,0.0001,0.2,1000,0.01, 50.0),
-        ZPID(0.3,0.0001,0.2,1000,0.01, 50.0),
+        YPID(0.3,0.0001,0.2,1000,0.01, 50.0, true),
+        ZPID(0.3,0.0001,0.2,1000,0.01, 50.0, true),
         XPos(),
         YPos(),
         ZPos(),
@@ -332,6 +332,7 @@ void StateEstimation::estimateState(){
 
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 actuateServos(false); // center servos without actuating them
@@ -344,6 +345,7 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
@@ -361,6 +363,7 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints 
@@ -377,6 +380,7 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
@@ -390,6 +394,7 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
@@ -402,6 +407,7 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
@@ -422,6 +428,7 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
@@ -437,6 +444,7 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
@@ -450,6 +458,7 @@ void StateEstimation::estimateState(){
             
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 computeGimbalMisalign();
@@ -464,6 +473,7 @@ void StateEstimation::estimateState(){
                 lastIMUReadMicros = micros(); // Update last IMU read time
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
+                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 RollMotor.stop(); // Stop roll motor
@@ -532,7 +542,31 @@ void StateEstimation::GPSLoop(){
     velocityUncertainty[2] = ZPos.getVelocityUncertainty(); // Update Z velocity uncertainty
 }
 
+//Deprecated now that we use external derivs 
+void StateEstimation::updateKalmansByError(){
+    return;
 
+    // float yError = abs(worldPosition[1] - positionSetpoint[0]);
+
+    // if(yError < 0.3){
+    //     YPos.setProcessNoise(0.0001, 0.001, 0.01);
+    // }else if(yError < 1.0){
+    //     YPos.setProcessNoise(0.001, 0.01, 0.1); 
+    // }else{
+    //     YPos.setProcessNoise(0.01, 0.1, 1.0);
+    // }
+
+    // float zError = abs(worldPosition[2] - positionSetpoint[1]);
+
+    // if(zError < 0.3){
+    //     ZPos.setProcessNoise(0.0001, 0.001, 0.01);
+    // }else if(zError < 1.0){
+    //     ZPos.setProcessNoise(0.001, 0.01, 0.1); 
+    // }else{
+    //     ZPos.setProcessNoise(0.01, 0.1, 1.0);
+    // }
+
+}
 
 /**
  * @brief Computes the current trajectory setpoint according to the target and current time
@@ -572,6 +606,33 @@ float StateEstimation::calculateTrajectory(float target, float time){
 }
 
 /**
+ * @brief Computes the velocity setpoint (derivative of trajectory)
+ */
+float StateEstimation::calculateTrajectoryVelocity(float target, float time) {
+    if (time <= 0 || time >= T_END) {
+        return 0; // No movement before start or after end
+    }
+
+    float v_max = target / (0.5 * T_ACCEL + T_COAST + 0.5 * T_DECEL);
+
+    if (time <= T_ACCEL) {
+        // Acceleration phase - sinusoidal velocity profile
+        float phaseProgress = time / T_ACCEL;
+        return v_max * 0.5 * (1 - cos(PI * phaseProgress));
+        
+    } else if (time <= T_ACCEL + T_COAST) {
+        // Coast phase - constant velocity
+        return v_max;
+        
+    } else {
+        // Deceleration phase - sinusoidal velocity profile (decreasing)
+        float tDecelCurrent = time - (T_ACCEL + T_COAST);
+        float phaseProgress = tDecelCurrent / T_DECEL;
+        return v_max * 0.5 * (1 + cos(PI * phaseProgress));
+    }
+}
+
+/**
  * @brief PID control loop for attitude and position control.
  */
 void StateEstimation::PIDLoop(){
@@ -580,14 +641,21 @@ void StateEstimation::PIDLoop(){
     positionSetpoint[0] = calculateTrajectory(Y_TARGET, timeSinceLaunch); // Calculate Y position setpoint based on trajectory
     positionSetpoint[1] = calculateTrajectory(Z_TARGET, timeSinceLaunch); // Calculate Z position setpoint based on trajectory
 
+    float velocitySetpoint[2];
+    velocitySetpoint[0] = calculateTrajectoryVelocity(Y_TARGET, timeSinceLaunch);
+    velocitySetpoint[1] = calculateTrajectoryVelocity(Z_TARGET, timeSinceLaunch);
+
     if(vehicleState == 66 || vehicleState == 65){
         // In stabilization and position hold test state, set position setpoints to zero
         positionSetpoint[0] = 0.0f; // Y position setpoint
         positionSetpoint[1] = 0.0f; // Z position setpoint
+
+        velocitySetpoint[0] = 0.0f; // Y velocity setpoint
+        velocitySetpoint[1] = 0.0f; // Z velocity setpoint
     }
 
-    YPID.compute(positionSetpoint[0], worldPosition[1]);
-    ZPID.compute(positionSetpoint[1], worldPosition[2]);
+    YPID.compute(positionSetpoint[0], worldPosition[1], velocitySetpoint[0] - worldVelocity[1], true);
+    ZPID.compute(positionSetpoint[1], worldPosition[2], velocitySetpoint[1] - worldVelocity[2], true);
 
     attitudeSetpoint[0] = min(max(YPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD); // Yaw
     attitudeSetpoint[1] = -min(max(ZPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD);// Pitch
@@ -934,6 +1002,9 @@ uint8_t StateEstimation::setVehicleState(int state){
                 }
                 break;
             case 0: //disarm process
+                if (vehicleState > 1 && vehicleState < 7){ // Somewhat unsafe but should not disarm in flight
+                    return 2; // Invalid transition
+                }
                 resetVariables(); // Reset all variables to initial conditions
                 gps.resetHome();
                 XPos.reset();
