@@ -1,32 +1,34 @@
 #include "MotorController.h"
 
 
+
+
 /**
  * @brief Constructor for MotorController. Initializes member variables.
  */
 
 MotorController::MotorController() {
+    pwm = Adafruit_PWMServoDriver();
 }
 
 /**
  * @brief Initializes the motor controller pins.
  */
 void MotorController::begin() {
+
     // Set the motor control pins as outputs
-    pinMode(ROLL_MINUS, OUTPUT);
-    pinMode(ROLL_PLUS, OUTPUT);
-    
-    // Reducing frequency to improve low speed control
-    //analogWriteFrequency(ROLL_MINUS, 25); // Set PWM frequency for ROLL_MINUS pin
-    //analogWriteFrequency(ROLL_PLUS, 25); // Set PWM frequency for ROLL_PLUS pin
+    pwm.begin();
+    pwm.setPWMFreq(100); // low freq for better control
+    Wire.setClock(400000);
+
     stop();
     
 }
 
 void MotorController::stop(){
     // Stop the motor by setting both pins to LOW
-    analogWrite(ROLL_MINUS, 0);
-    analogWrite(ROLL_PLUS, 0);
+    pwm.setPin(ROLL_MINUS, 4096);
+    pwm.setPin(ROLL_PLUS, 4096);
 }
 
 
@@ -39,18 +41,18 @@ void MotorController::setSpeed(float speed) {
     
     speed = min(max(speed, -MAX_WHEEL_SPEED), MAX_WHEEL_SPEED); // Limit speed to max wheel speed
 
-    int a = static_cast<int>(speed / 6.275); // Convert speed to PWM value (0-4095)
+    int a = static_cast<int>(speed / 0.39); // Convert speed to PWM value (0-4095)
     // TODO : adjust conversion based on measured values
 
-    a = min(max(a, -255), 255); // Limit PWM value to range -255 to 255
+    a = min(max(a, -4095), 4095); // Limit PWM value to range -4095 to 4095
 
     //analogWriteResolution(12);
     if (a > 0) {
-        analogWrite(ROLL_MINUS, 0);
-        analogWrite(ROLL_PLUS, a); // Set speed on ROLL_PLUS pin
+        pwm.setPin(ROLL_MINUS, 4096);
+        pwm.setPin(ROLL_PLUS, 4095 - (a));
     } else if (a < 0) {
-        analogWrite(ROLL_PLUS, 0);
-        analogWrite(ROLL_MINUS, -a); // Set speed on ROLL_MINUS pin
+        pwm.setPin(ROLL_PLUS, 4096);
+        pwm.setPin(ROLL_MINUS, 4095 - (-a));
     } else {
         stop(); // Stop the motor if speed is zero
     }

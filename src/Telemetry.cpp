@@ -347,6 +347,10 @@ void Telemetry::handleReceive(StateEstimation& state) {
                         error = state.setVehicleState(68);
                         returnAck(LINK80::MessageType::MISALIGN_TEST, commandID, error);
                         break;
+                    case (LINK80::MessageType::PYRO_TEST):
+                        error = state.setVehicleState(70);
+                        returnAck(LINK80::MessageType::PYRO_TEST, commandID, error);
+                        break;
                 }
             }
             if (unpacked.message_type >= 51 && unpacked.message_type <= 55) {

@@ -49,9 +49,10 @@ private:
 
     Quaternion angularAccelCommandVector;
     Quaternion bodyAngularAccelCommandVector;
+    Quaternion rollRateCompensatedBodyToWorld;
 
 
-    MotorController RollMotor; // Motor controller for roll motor
+    //MotorController RollMotor; // Motor controller for roll motor
 
     uint64_t lastStateEstimateMicros; // Last time state estimation was run in microseconds
 

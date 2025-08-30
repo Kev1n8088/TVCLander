@@ -35,8 +35,8 @@ StateEstimation::StateEstimation()
         ZPID(0.3,0.0001,0.2,1000,0.01, 50.0, true),
         XPos(),
         YPos(),
-        ZPos(),
-        RollMotor()
+        ZPos()//,
+        //RollMotor()
 {
 }
 
@@ -51,7 +51,7 @@ int StateEstimation::begin(){
     pinMode(LAND_CONTINUITY, INPUT); // Set the land continuity pin as input
     pinMode(LAND_PYRO, OUTPUT); // Set the land pyro pin as output
     digitalWrite(LAND_PYRO, LOW); // Initialize the land pyro pin to LOW
-    RollMotor.begin();
+    //RollMotor.begin();
     PitchServo.attach(PITCH_SERVO); // Attach the pitch servo to the specified pin
     YawServo.attach(YAW_SERVO); // Attach the yaw servo to the specified pin
 
@@ -83,6 +83,7 @@ void StateEstimation::resetVariables(){
     GPSVelocityBody = Quaternion(0, 0, 0, 0);
     angularAccelCommandVector = Quaternion(0, 0, 0, 0);
     bodyAngularAccelCommandVector = Quaternion(0, 0, 0, 0);
+    rollRateCompensatedBodyToWorld = Quaternion(0, 0, 0, 0);
 
     
     // init variables
@@ -168,9 +169,9 @@ float StateEstimation::getMass(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return 1.0f;
+        return 1.15f;
     }else{
-        return 0.9f;
+        return 1.05f;
     }
 }
 
@@ -182,9 +183,9 @@ float StateEstimation::getMomentArm(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return 0.05f;
+        return 0.078f;
     }else{
-        return 0.07f;
+        return 0.097f;
     }
 }
 
@@ -196,9 +197,9 @@ float StateEstimation::getPitchYawMMOI(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return 0.023f;
+        return 0.033f;
     }else{
-        return 0.020f;
+        return 0.029f;
     }
 }
 
@@ -324,7 +325,7 @@ void StateEstimation::estimateState(){
             if (digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 updatePrelaunch(); // Update gyro biases and orientation before launch
-                RollMotor.stop(); // Stop roll motor
+                //RollMotor.stop(); // Stop roll motor
             }
             break;
         case 1: // Armed State. < 30 seconds before launch, do not update gyro bias.
@@ -332,26 +333,24 @@ void StateEstimation::estimateState(){
 
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 actuateServos(false); // center servos without actuating them
-                RollMotor.stop(); // Stop roll motor
+                //RollMotor.stop(); // Stop roll motor
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
-                //detectLaunch();
+                detectLaunch();
             }
             break;
         case 2: // No gimbal command state, characterizing misalign
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 computeGimbalMisalign();
                 actuateServos(false); // center servos without actuating them
-                actuateWheel(); 
+                //actuateWheel(); 
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             // TODO: Lock servos in center position
@@ -363,12 +362,11 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints 
                 actuateServos();
-                actuateWheel(); 
+                //actuateWheel(); 
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             // TODO: insert code for updating servos
@@ -380,12 +378,11 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                actuateWheel(); 
+                //actuateWheel(); 
                 detectApogee();
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
@@ -394,12 +391,11 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                actuateWheel(); 
+                //actuateWheel(); 
                 firePyroWhenReady(); // Fire pyro when ready
             }
             break;
@@ -407,12 +403,11 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                actuateWheel(); 
+                //actuateWheel(); 
                 firePyroWhenReady(); // Keep firing pyro to ensure ignition
             }
             if(timeSinceLaunch > 15.0f) { // If time since launch is greater than 15 seconds, assume landing. Very simple because no harm in staying in this state for longer than necessary.
@@ -428,12 +423,11 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos(false); // center servos without actuating them
-                actuateWheel(); 
+                //actuateWheel(); 
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             break;
@@ -444,13 +438,12 @@ void StateEstimation::estimateState(){
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                RollMotor.stop(); // Stop roll motor
-                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
+                //RollMotor.stop(); // Stop roll motor
+                //digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             break;
         case 68: //misalignment test - operation: rotate the vehicle and the gimbal should move in the opposite direction 
@@ -458,12 +451,11 @@ void StateEstimation::estimateState(){
             
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 computeGimbalMisalign();
                 actuateServos(true, false); // Actuate but do not include PID outputs
-                RollMotor.stop(); // Stop roll motor
+                //RollMotor.stop(); // Stop roll motor
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             break;
@@ -473,13 +465,22 @@ void StateEstimation::estimateState(){
                 lastIMUReadMicros = micros(); // Update last IMU read time
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
-                updateKalmansByError();
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
-                RollMotor.stop(); // Stop roll motor
+                //RollMotor.stop(); // Stop roll motor
                 actuateServos(false); // center servos without actuating them
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
+            break;
+        case 70: //Pyro fire:
+            digitalWrite(LAND_PYRO, HIGH);
+            readIMU0(); // Read IMU data only if DRY
+            oriLoop(); // Call orientation loop to update orientation
+            accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
+            GPSLoop();
+            actuateServos(false); // center servos without actuating them
+            //RollMotor.stop(); // Stop roll motor
+            break;
     }
         
 }
@@ -704,7 +705,12 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
 
     // roll mixer
     angularAccelCommandVector = Quaternion(0, 0, angularAccelCommand[1], angularAccelCommand[0]); // pitch yaw
-    bodyAngularAccelCommandVector = ori.orientation.conj().rotate(angularAccelCommandVector);
+
+    float roll_feedforward = gyroRemovedBias[2] * ROLL_FEEDFORWARD_T;
+
+    rollRateCompensatedBodyToWorld = ori.orientation * Quaternion().from_axis_angle(roll_feedforward, 1, 0, 0);
+
+    bodyAngularAccelCommandVector = rollRateCompensatedBodyToWorld.conj().rotate(angularAccelCommandVector);
 
     gimbalAngle[1] =  bodyAngularAccelCommandVector.c; // Pitch gimbal angle command
     gimbalAngle[0] = bodyAngularAccelCommandVector.d; // Yaw gimbal angle command
@@ -738,37 +744,36 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
     YawServo.write(90 - servoAngle[0]); // Set yaw servo angle, 90 degrees is center position
     PitchServo.write(90 + servoAngle[1]); // Set pitch servo angle, 90 degrees is center position
 
-    // Actuate roll motor
 }
 
-void StateEstimation::actuateWheel(){
-    if(lastWheelMicros == 0) { // If this is the first update, set lastWheelMicros to current time
-        lastWheelMicros = micros();
-        return;
-    }
-    if (micros() - lastWheelMicros < ACTUATOR_INTERVAL_US) { // If not enough time has passed since last update, return
-        return;
-    }
+// void StateEstimation::actuateWheel(){
+//     if(lastWheelMicros == 0) { // If this is the first update, set lastWheelMicros to current time
+//         lastWheelMicros = micros();
+//         return;
+//     }
+//     if (micros() - lastWheelMicros < ACTUATOR_INTERVAL_US) { // If not enough time has passed since last update, return
+//         return;
+//     }
 
-    float dt = (float)(micros() - lastWheelMicros) / 1000000.0f; // Convert to seconds
+//     float dt = (float)(micros() - lastWheelMicros) / 1000000.0f; // Convert to seconds
 
-    lastWheelMicros = micros(); // Update last wheel time
-    // Actuate roll motor
-    // reaction wheel controller
-    if(abs(gyroRemovedBias[2]) > 0.1f){
-        wheelSpeed += (RollPID.getOutput() / WHEEL_MOI) * dt;  // Roll wheel speed command, because PID requests torque and torque is only generated by changing wheel speed
-    }
-    wheelSpeed = min(max(wheelSpeed, -MAX_WHEEL_SPEED), MAX_WHEEL_SPEED); // Limit wheel speed to max
+//     lastWheelMicros = micros(); // Update last wheel time
+//     // Actuate roll motor
+//     // reaction wheel controller
+//     if(abs(gyroRemovedBias[2]) > 1.5f){
+//         wheelSpeed += (RollPID.getOutput() / WHEEL_MOI) * dt;  // Roll wheel speed command, because PID requests torque and torque is only generated by changing wheel speed
+//     }
+//     wheelSpeed = min(max(wheelSpeed, -MAX_WHEEL_SPEED), MAX_WHEEL_SPEED); // Limit wheel speed to max
 
-    //hybrid bang bang implementation - hopefully sidesteps wheel's slow acceleration issues
-    if(gyroRemovedBias[2] > 0.7f || gyroRemovedBias[2] < -0.7f){ // If gyro rate is too high
-        //RollMotor.setSpeed(-MAX_WHEEL_SPEED * 0.95 * gyroRemovedBias[2]/abs(gyroRemovedBias[2])); // Set roll motor speed based on gyro X, 90% of max wheel speed
-        RollMotor.setSpeed(wheelSpeed * 3); // Set roll motor speed based on wheel speed command
-    }else{
-        RollMotor.setSpeed(wheelSpeed); // Set roll motor speed based on wheel speed command
-    }
+//     //hybrid bang bang implementation - hopefully sidesteps wheel's slow acceleration issues
+//     if(abs(gyroRemovedBias[2]) > 2.5f){ // If gyro rate is too high
+//         //RollMotor.setSpeed(-MAX_WHEEL_SPEED * 0.95 * gyroRemovedBias[2]/abs(gyroRemovedBias[2])); // Set roll motor speed based on gyro X, 90% of max wheel speed
+//         RollMotor.setSpeed(wheelSpeed * 3); // Set roll motor speed based on wheel speed command
+//     }else{
+//         RollMotor.setSpeed(wheelSpeed); // Set roll motor speed based on wheel speed command
+//     }
 
-}
+// }
 
 /**
  * @brief Fires pyro charges when the vehicle is ready for landing.
@@ -987,9 +992,9 @@ uint8_t StateEstimation::setVehicleState(int state){
             case 1: // armed process
                 if (vehicleState == 0){
                     if(sensorStatus == 0 && gps.getGPSInfo().fixType == 4){ // allow arm with RTKfix, and all sensors functioning
-                        if(getPyroCont() == false){ // Check if pyro continuity is not detected
-                            return 4; // Cannot arm if pyro continuity is not detected
-                        }
+                        // if(getPyroCont() == false){ // Check if pyro continuity is not detected
+                        //     return 4; // Cannot arm if pyro continuity is not detected
+                        // }
                         vehicleState = 1;
                         XPos.begin(); // Initialize X Kalman
                         YPos.begin(); // Initialize Y Kalman
@@ -1017,7 +1022,7 @@ uint8_t StateEstimation::setVehicleState(int state){
                 YawPID.reset();
                 PitchPID.reset();
                 RollPID.reset();
-                RollMotor.stop(); // Stop roll motor
+                //RollMotor.stop(); // Stop roll motor
                 vehicleState = 0; // Set vehicle state to disarmed
                 break;
             default:
@@ -1075,11 +1080,11 @@ void StateEstimation::detectLaunch(){
 void StateEstimation::detectApogee(){
     if (worldPosition[0] > apogeeAltitude){
         apogeeAltitude = worldPosition[0];
-    }
+    }   
     if (worldPosition[0] < apogeeAltitude - BELOW_APOGEE_THRESHOLD){
         // TODO: Smarter ignition altitude adjustment
         if (vehicleState == 4){
-            landingIgnitionAltitude = 0.6 * apogeeAltitude;
+            landingIgnitionAltitude = 0.745 * apogeeAltitude;
             vehicleState = 5;
             
         }
@@ -1093,7 +1098,7 @@ void StateEstimation::computeGimbalMisalign(){
         return;
     }
 
-    if ((vehicleState == 2 && timeSinceLaunch > 0 && timeSinceLaunch < GIMBAL_STABILIZATION_TIME) || vehicleState == 68)  { // If in flight state and time since launch is within gimbal stabilization time
+    if ((vehicleState == 2  || vehicleState == 68) && timeSinceLaunch > 0 && timeSinceLaunch < MISALIGN_CHARACTERIZATION_TIME)  { // If in flight state and time since launch is within gimbal stabilization time
         float dt = (float)(micros() - lastGimbalMisalignMicros) / 1000000.0f; // Convert to seconds
         lastGimbalMisalignMicros = micros(); // Update last gimbal misalign time
         gimbalForceAccumulator += getThrust() * dt;
@@ -1116,8 +1121,8 @@ void StateEstimation::computeGimbalMisalign(){
             return;
         }
 
-        gimbalMisalign[0] = asin(y);
-        gimbalMisalign[1] = asin(p);
+        gimbalMisalign[0] = -asin(y);
+        gimbalMisalign[1] = -asin(p);
 
         gimbalMisalign[0] = min(max(gimbalMisalign[0], -GIMBAL_LIMIT_RAD/2), GIMBAL_LIMIT_RAD/2); // Limit gimbal misalignment to +/- GIMBAL_LIMIT_RAD/2
         gimbalMisalign[1] = min(max(gimbalMisalign[1], -GIMBAL_LIMIT_RAD/2), GIMBAL_LIMIT_RAD/2); // Limit gimbal misalignment to +/- GIMBAL_LIMIT_RAD/2

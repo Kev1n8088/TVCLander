@@ -38,8 +38,10 @@
 #define PITCH_SERVO SRV3
 
 // Roll motor controller pins
-#define ROLL_MINUS SRV5
-#define ROLL_PLUS SRV6
+#define PWM_DRIVER_ADDR 0x40
+
+#define ROLL_MINUS 0
+#define ROLL_PLUS 1
 
 #define ACTUATOR_INTERVAL_US 20000 // Actuation interval in micros
 
@@ -85,7 +87,7 @@
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
 
 #define WHEEL_MOI 0.0000018
-#define MAX_WHEEL_SPEED 1600.0f // rad/s
+#define MAX_WHEEL_SPEED 1400.0f // rad/s
 
 #define GPS_SERIAL_PORT Serial8
 #define GPS_BAUD_RATE 460800 // Baud rate for GPS module
@@ -93,6 +95,8 @@
 
 #define VBAT_SENSE_PIN A13
 #define VBAT_DIVIDER 4.214f * 3.3f // Voltage divider ratio for battery voltage sensing
+
+#define ROLL_FEEDFORWARD_T -0.1f
 
 
 #define T_ACCEL 1.5
