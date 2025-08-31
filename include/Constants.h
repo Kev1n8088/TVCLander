@@ -78,7 +78,7 @@
 #define GIMBAL_LIMIT_RAD 5.0 * DEG_TO_RAD // 5 degrees in radians
 #define MAX_ATTITIDE_SETPOINT_RAD 0.15
 
-#define PYRO_LOCKOUT_ALT 5.0
+#define PYRO_LOCKOUT_ALT 3.0
 
 #define LAUNCH_ACCEL_THRESHOLD 11.3 // m/s^2
 #define MISALIGN_CHARACTERIZATION_TIME 0.2 //s, T+ at which we stop characterizing gimbal misalign

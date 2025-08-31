@@ -795,11 +795,12 @@ void StateEstimation::firePyroWhenReady(){
     if (vehicleState == 5 || vehicleState == 6) { // If vehicle is past apogee or in landing burn state
         if(worldPosition[0] > PYRO_LOCKOUT_ALT){
             digitalWrite(LAND_PYRO, HIGH); // Fire pyro
-            if(vehicleState == 5){ // If vehicle is past apogee
-                vehicleState = 6; // Change state to landing burn
-            }
         }else{
             digitalWrite(LAND_PYRO, LOW); // Do not fire pyro
+        }
+        
+        if(vehicleState == 5){ // If vehicle is past apogee
+            vehicleState = 6; // Change state to landing burn
         }
     }else{
         digitalWrite(LAND_PYRO, LOW); // Do not fire pyro
@@ -1068,7 +1069,7 @@ const float* StateEstimation::getEulerAngle(){
 // Detects Launch via absolute value of acceleration
 void StateEstimation::detectLaunch(){
     if (vehicleState == 1){
-        if (abs(pow(resultIMU0Data.Acc1[1], 2) + pow(resultIMU0Data.Acc1[0], 2) + pow(resultIMU0Data.Acc1[2], 2)) > LAUNCH_ACCEL_THRESHOLD){
+        if (sqrt(pow(resultIMU0Data.Acc1[1], 2) + pow(resultIMU0Data.Acc1[0], 2) + pow(resultIMU0Data.Acc1[2], 2)) > LAUNCH_ACCEL_THRESHOLD){
             vehicleState = 2;       
             launchTime = millis() / 1000.0;
             lastGimbalMisalignMicros = micros();
