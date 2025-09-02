@@ -33,7 +33,7 @@ void KalmanFilter::begin(float initial_pos, float initial_vel, float initial_acc
     P[2][2] = 1.0;    // Acceleration uncertainty
     
     // Set default process noise
-    setProcessNoise(0.02, 0.1, 0.5);
+    setProcessNoise(0.001, 0.01, 0.12);
     
     lastUpdateMicros = micros();
     initialized = true;
