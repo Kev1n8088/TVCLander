@@ -4,7 +4,6 @@ static uint8_t gpsTXBuffer[16 * 1024];
 static uint8_t gpsRXBuffer[16 * 1024];
 
 GPSHandler::GPSHandler() {
-    homeAverageCount = 0;
     lastRTCMMillis = 0; // Initialize last RTCM correction time 
     lastUpdateTime = 0;
     updateInterval = 100;
@@ -112,21 +111,16 @@ void GPSHandler::setCurrentAsHome() {
         }
         return; // Do not set home if GPS fix quality is insufficient
     }
-    homeAverageCount++;
 
-    float alpha = 1.0f / homeAverageCount;
 
-    home.latitude      = (1 - alpha) * home.latitude   + alpha * current.latitude;
-    home.longitude     = (1 - alpha) * home.longitude + alpha * current.longitude;
-    home.altitude      = (1 - alpha) * home.altitude  + alpha * current.altitude;
+    home.latitude  = current.latitude;
+    home.longitude = current.longitude;
+    home.altitude  = current.altitude;
 
-    if (DEBUG_MODE) {
-        DEBUG_SERIAL.println("Home position averaged with current GPS position");
-    }
+
 }
 
 void GPSHandler::resetHome() {
-    homeAverageCount = 0; // Reset home average count
     home.latitude = 0.0f; // Reset home latitude
     home.longitude = 0.0f; // Reset home longitude
     home.altitude = 0.0f; // Reset home altitude

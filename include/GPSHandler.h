@@ -39,7 +39,6 @@ private:
     LG290P gps; 
     uint64_t lastUpdateMillis;
     bool DRY;
-    int homeAverageCount;
     uint32_t lastRTCMMillis; // Last time RTCM correction was received
 
     positionAndVelocity home; // Home position for GPS
