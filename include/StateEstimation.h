@@ -119,6 +119,15 @@ private:
     float velocityUncertainty[3];
     float positionUncertainty[3];
 
+    // Adaptive misalign characterization
+    float lastBodyAngAccelCommand[2];
+    float filteredActualAngularAccel[2];
+    float lastGyroRemovedBias[3];
+    bool adaptiveEstimationActive;
+
+    int commandBufferIndex;
+    int servoDelayCounter; 
+
 
     int beginBaro();
     int beginIMU0();
@@ -142,6 +151,10 @@ private:
     void actuateWheel();
     void GPSLoop();
     void firePyroWhenReady();
+
+    void adaptiveGimbalMisalignEstimation();
+    bool isServoCommandSteady(float currentCommand[2], float dt);
+
     float calculateTrajectory(float target, float time);
     float calculateTrajectoryVelocity(float target, float time);
 

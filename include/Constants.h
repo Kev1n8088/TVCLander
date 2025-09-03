@@ -75,7 +75,7 @@
 #define Y_TARGET 2.0f // Target Y position in meters for landing
 #define Z_TARGET 0.0f // Target X position in meters for landing
 
-#define GIMBAL_LIMIT_RAD 5.0 * DEG_TO_RAD // 5 degrees in radians
+#define GIMBAL_LIMIT_RAD 10.0 * DEG_TO_RAD // 10 degrees in radians
 #define MAX_ATTITIDE_SETPOINT_RAD 0.15
 
 #define PYRO_LOCKOUT_ALT 3.0
@@ -103,6 +103,8 @@
 #define T_DECEL 2.0
 #define T_END 8.2
 #define T_COAST (T_END - T_ACCEL - T_DECEL) // Time spent coasting after acceleration and deceleration phases
+
+#define DELAY_BUFFER_SIZE 12
 
 #endif // CONSTANTS_H
 
