@@ -52,7 +52,13 @@ int StateEstimation::begin(){
     pinMode(IMU0_DRY_PIN, INPUT); // Set the dry pin for SCH1 as input
     pinMode(LAND_CONTINUITY, INPUT); // Set the land continuity pin as input
     pinMode(LAND_PYRO, OUTPUT); // Set the land pyro pin as output
+    pinMode(CHUTE_CONTINUITY, INPUT); // Set the chute continuity pin as input
+    pinMode(CHUTE_PYRO, OUTPUT); // Set the chute pyro pin as output
+
+
     digitalWrite(LAND_PYRO, LOW); // Initialize the land pyro pin to LOW
+    digitalWrite(CHUTE_PYRO, LOW); // Initialize the chute pyro pin to LOW
+    
     //RollMotor.begin();
     PitchServo.attach(PITCH_SERVO); // Attach the pitch servo to the specified pin
     YawServo.attach(YAW_SERVO); // Attach the yaw servo to the specified pin
@@ -333,6 +339,12 @@ void StateEstimation::estimateState(){
 
     gps.gpsLoop(); // Update GPS data
 
+    if(vehicleState > 4 && vehicleState < 7){
+        if (gps.getGPSInfo().fixType < 3) { // If lost GPS
+            abort();
+        }
+    }
+
 
     // State machine
     switch (vehicleState){
@@ -340,6 +352,8 @@ void StateEstimation::estimateState(){
             if (digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 updatePrelaunch(); // Update gyro biases and orientation before launch
+                digitalWrite(LAND_PYRO, LOW);
+                digitalWrite(CHUTE_PYRO, LOW);
                 //RollMotor.stop(); // Stop roll motor
             }
             break;
@@ -352,7 +366,8 @@ void StateEstimation::estimateState(){
                 GPSLoop();
                 actuateServos(false); // center servos without actuating them
                 //RollMotor.stop(); // Stop roll motor
-                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
+                digitalWrite(LAND_PYRO, LOW);
+                digitalWrite(CHUTE_PYRO, LOW);
                 detectLaunch();
             }
             break;
@@ -365,8 +380,8 @@ void StateEstimation::estimateState(){
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 computeGimbalMisalign();
                 actuateServos(false); // center servos without actuating them
-                //actuateWheel(); 
-                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
+                digitalWrite(LAND_PYRO, LOW);
+                digitalWrite(CHUTE_PYRO, LOW);
             }
             // TODO: Lock servos in center position
             if (timeSinceLaunch > MISALIGN_CHARACTERIZATION_TIME){
@@ -381,8 +396,8 @@ void StateEstimation::estimateState(){
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints 
                 actuateServos();
-                //actuateWheel(); 
-                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
+                digitalWrite(LAND_PYRO, LOW);
+                digitalWrite(CHUTE_PYRO, LOW);
             }
             // TODO: insert code for updating servos
             if (timeSinceLaunch > GIMBAL_STABILIZATION_TIME){
@@ -397,9 +412,9 @@ void StateEstimation::estimateState(){
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                //actuateWheel(); 
                 detectApogee();
-                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
+                digitalWrite(LAND_PYRO, LOW);
+                digitalWrite(CHUTE_PYRO, LOW);
             }
             break;
         case 5: // Past apogee state
@@ -410,7 +425,6 @@ void StateEstimation::estimateState(){
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                //actuateWheel(); 
                 firePyroWhenReady(); // Fire pyro when ready
             }
             break;
@@ -422,7 +436,6 @@ void StateEstimation::estimateState(){
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                //actuateWheel(); 
                 firePyroWhenReady(); // Keep firing pyro to ensure ignition
             }
             if(timeSinceLaunch > 15.0f) { // If time since launch is greater than 15 seconds, assume landing. Very simple because no harm in staying in this state for longer than necessary.
@@ -558,31 +571,6 @@ void StateEstimation::GPSLoop(){
     velocityUncertainty[2] = ZPos.getVelocityUncertainty(); // Update Z velocity uncertainty
 }
 
-//Deprecated now that we use external derivs 
-void StateEstimation::updateKalmansByError(){
-    return;
-
-    // float yError = abs(worldPosition[1] - positionSetpoint[0]);
-
-    // if(yError < 0.3){
-    //     YPos.setProcessNoise(0.0001, 0.001, 0.01);
-    // }else if(yError < 1.0){
-    //     YPos.setProcessNoise(0.001, 0.01, 0.1); 
-    // }else{
-    //     YPos.setProcessNoise(0.01, 0.1, 1.0);
-    // }
-
-    // float zError = abs(worldPosition[2] - positionSetpoint[1]);
-
-    // if(zError < 0.3){
-    //     ZPos.setProcessNoise(0.0001, 0.001, 0.01);
-    // }else if(zError < 1.0){
-    //     ZPos.setProcessNoise(0.001, 0.01, 0.1); 
-    // }else{
-    //     ZPos.setProcessNoise(0.01, 0.1, 1.0);
-    // }
-
-}
 
 /**
  * @brief Computes the current trajectory setpoint according to the target and current time
@@ -780,8 +768,17 @@ void StateEstimation::firePyroWhenReady(){
 
     if (vehicleState == 5 || vehicleState == 6) { // If vehicle is past apogee or in landing burn state
         if(worldPosition[0] > PYRO_LOCKOUT_ALT){
+            if(abs(ori.toEuler().yaw) > PI / 4 || abs(ori.toEuler().pitch) > PI / 4 || ori.orientation.a < 0){ // ABORT if too tilted or pointing backward
+                abort();
+                return;
+            }
+            if(!getPyroCont()){ // ABORT if pyro is not ready
+                abort();
+                return;
+            }
             digitalWrite(LAND_PYRO, HIGH); // Fire pyro
         }else{
+            digitalWrite(CHUTE_PYRO, LOW);
             digitalWrite(LAND_PYRO, LOW); // Do not fire pyro
         }
         
@@ -797,6 +794,11 @@ void StateEstimation::firePyroWhenReady(){
 bool StateEstimation::getPyroCont(){
     // Returns true if pyro continuity is detected, false otherwise
     return digitalRead(LAND_CONTINUITY) == HIGH; // Check if land continuity pin is HIGH
+}
+
+bool StateEstimation::getChuteCont(){
+    // Returns true if chute continuity is detected, false otherwise
+    return digitalRead(CHUTE_CONTINUITY) == HIGH; // Check if chute continuity pin is HIGH
 }
 
 
@@ -1072,10 +1074,28 @@ void StateEstimation::detectApogee(){
     if (worldPosition[0] < apogeeAltitude - BELOW_APOGEE_THRESHOLD){
         // TODO: Smarter ignition altitude adjustment
         if (vehicleState == 4){
+            if(abs(ori.toEuler().yaw) > PI / 4 || abs(ori.toEuler().pitch) > PI / 4 || ori.orientation.a < 0){ // ABORT if too tilted or pointing backward
+                abort();
+                return;
+            }
+            if(!getPyroCont()){ // ABORT if pyro is not ready
+                abort();
+                return;
+            }
+
             landingIgnitionAltitude = 0.745 * apogeeAltitude;
             vehicleState = 5;
             
         }
+    }
+}
+
+void StateEstimation::abort(){
+    if(vehicleState > 4 && vehicleState < 7 && accelCalibrated[0] < 5.0){ //Not under thrust, and in flight
+        if(worldPosition[0] > PYRO_LOCKOUT_ALT || gps.getGPSInfo().fixType < 3){ //If above pyro lockout altitude, or lost GPS
+            digitalWrite(CHUTE_PYRO, HIGH);
+        }
+        vehicleState = 7;
     }
 }
 

@@ -48,6 +48,9 @@
 #define LAND_PYRO 32
 #define LAND_CONTINUITY 26
 
+#define CHUTE_PYRO 31
+#define CHUTE_CONTINUITY A16
+
 #define WORLD_GRAVITY_X -9.81f
 #define WORLD_GRAVITY_Y -0.0f
 #define WORLD_GRAVITY_Z -0.0f
@@ -82,7 +85,7 @@
 
 #define LAUNCH_ACCEL_THRESHOLD 12.5 // m/s^2
 #define MISALIGN_CHARACTERIZATION_TIME 0.2 //s, T+ at which we stop characterizing gimbal misalign
-#define GIMBAL_STABILIZATION_TIME 2.4 //s, T+ at which we switch to stabilize mode
+#define GIMBAL_STABILIZATION_TIME 2.1 //s, T+ at which we switch to stabilize mode
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
 

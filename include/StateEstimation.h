@@ -63,7 +63,6 @@ private:
     uint64_t lastAccelUpdate;
 
     Orientation ori;
-    EulerAngles oriEuler;
 
     SCH1_raw_data rawIMU0Data;
     SCH1_result resultIMU0Data;
@@ -163,6 +162,7 @@ private:
 public: 
     //Just debugging
     int GPSStatus;
+    void abort();
 
     StateEstimation();
     void estimateState();
@@ -176,6 +176,7 @@ public:
     uint8_t getSensorStatus() { return sensorStatus; }
     uint8_t setVehicleState(int state); 
 
+    bool getChuteCont();
     bool getPyroCont();
 
     const float* getEulerAngle();

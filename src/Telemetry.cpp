@@ -133,6 +133,9 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
     GPSInfo& gpsInfo = state.getGPSInfo();
 
     float vbat = (((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER;
+
+
+    uint8_t pyroMask = (state.getChuteCont() ? (1 << 0) : 0) | (state.getPyroCont() ? (1 << 1) : 0); // Create a bitmask for pyro status. First bit is chute, second bit is landing motor
     switch (currentPacketType){
         case 0:
         case 4: //state telem packet
@@ -197,7 +200,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .mass = state.getMass(),
                 .MMOI = state.getPitchYawMMOI(),
                 .momentArm = state.getMomentArm(),
-                .pyroStatus = (uint8_t)state.getPyroCont() ? (uint8_t)127 : (uint8_t)0, // 1 if pyro is ready, 0 otherwise
+                .pyroStatus = pyroMask,
                 .vehicle_ms = millis(),
                 .down_count = downCount
             };
@@ -527,6 +530,8 @@ void Telemetry::dataLog(StateEstimation& state) {
         telemetryBufferUsed += packet_size;
     }
 
+    uint8_t pyroMask = (state.getChuteCont() ? (1 << 0) : 0) | (state.getPyroCont() ? (1 << 1) : 0); // Create a bitmask for pyro status. First bit is chute, second bit is landing motor
+
     // 3. Lander data packet
     lander = {
         .YTarget = Y_TARGET,
@@ -549,7 +554,7 @@ void Telemetry::dataLog(StateEstimation& state) {
         .mass = state.getMass(),
         .MMOI = state.getPitchYawMMOI(),
         .momentArm = state.getMomentArm(),
-        .pyroStatus = (uint8_t)state.getPyroCont() ? (uint8_t)127 : (uint8_t)0,
+        .pyroStatus = pyroMask,
         .vehicle_ms = millis(),
         .down_count = downCount
     };
