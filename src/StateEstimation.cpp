@@ -447,18 +447,6 @@ void StateEstimation::estimateState(){
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             break;
         // below are test states - they do not contain transition logic and are used for testing purposes only
-        case 64: // Wheel testing state
-            if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
-                readIMU0(); // Read IMU data only if DRY
-                oriLoop(); // Call orientation loop to update orientation
-                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
-                PIDLoop(); // Call PID loop to compute attitude setpoints
-                actuateServos(false); // center servos without actuating them
-                //actuateWheel(); 
-                digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
-            }
-            break;
         // Servo test cases - no wheel
         case 65: // Stabilization test state (no use of positional PID)
         case 66:// Positional PID test state (setpoint 0)
@@ -470,7 +458,6 @@ void StateEstimation::estimateState(){
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
-                //RollMotor.stop(); // Stop roll motor
                 //digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             break;
@@ -483,7 +470,6 @@ void StateEstimation::estimateState(){
                 GPSLoop();
                 computeGimbalMisalign();
                 actuateServos(true, false); // Actuate but do not include PID outputs
-                //RollMotor.stop(); // Stop roll motor
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
             break;
@@ -495,7 +481,6 @@ void StateEstimation::estimateState(){
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
-                //RollMotor.stop(); // Stop roll motor
                 actuateServos(false); // center servos without actuating them
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
             }
@@ -507,7 +492,6 @@ void StateEstimation::estimateState(){
             accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
             GPSLoop();
             actuateServos(false); // center servos without actuating them
-            //RollMotor.stop(); // Stop roll motor
             break;
     }
         
@@ -1082,7 +1066,7 @@ void StateEstimation::detectApogee(){
                 abort();
                 return;
             }
-
+            
             landingIgnitionAltitude = 0.745 * apogeeAltitude;
             vehicleState = 5;
             
