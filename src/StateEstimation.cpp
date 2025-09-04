@@ -1066,7 +1066,7 @@ void StateEstimation::detectApogee(){
                 abort();
                 return;
             }
-            
+
             landingIgnitionAltitude = 0.745 * apogeeAltitude;
             vehicleState = 5;
             
@@ -1191,8 +1191,7 @@ void StateEstimation::adaptiveGimbalMisalignEstimation(){
             asin(constrain(angAccelError[1] * modifier, -1.0f, 1.0f))
         };
 
-        float timeAfterCharacterization = timeSinceLaunch - MISALIGN_CHARACTERIZATION_TIME;
-        float adaptiveGain = min(0.02 + 0.08 * timeAfterCharacterization, 0.1);
+        float adaptiveGain = 0.04;
         
         gimbalMisalign[0] += requiredGimbalCorrection[0] * adaptiveGain;
         gimbalMisalign[1] += requiredGimbalCorrection[1] * adaptiveGain;
