@@ -91,6 +91,8 @@ private:
     float gimbalMisalignTime;
     float gimbalMisalign[2]; // Misalign yaw and pitch
     float gimbalForceAccumulator;
+    float MMOIAccumulator;
+    float momentArmAccumulator;
 
     float attitudeSetpoint[2]; // Yaw and Pitch setpoints for gimbal
     float angularAccelCommand[2]; // before transform applied for servo command
@@ -118,12 +120,13 @@ private:
     float velocityUncertainty[3];
     float positionUncertainty[3];
 
+    float landingIgnitionTime = 0;
+
     // Adaptive misalign characterization
     float lastBodyAngAccelCommand[2];
     float filteredActualAngularAccel[2];
     float lastGyroRemovedBias[3];
-    bool adaptiveEstimationActive;
-
+    
     int commandBufferIndex;
     int servoDelayCounter; 
 

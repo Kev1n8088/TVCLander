@@ -4,7 +4,7 @@
 #include <Constants.h>
 #include "StateEstimation.h"
 
-EXTMEM uint8_t telemetryBuffer[MAX_DATA_LOGS * MAX_BYTES_PER_LOG];
+static uint8_t telemetryBuffer[MAX_BYTES_PER_LOG];
 static uint8_t serialBuffer[32 * 1024];
 
 static uint8_t telemetryPacketBuffer[LINK80::MAX_PACKET_SIZE];
@@ -32,11 +32,11 @@ static uint8_t receiveBuffer[600]; // Buffer for received packets
 Telemetry::Telemetry(){
     lastLogMillis = 0;
     lastTelemetryMillis = 0;
-    oldVehicleState = 0;
     telemetryBufferUsed = 0;
     SDGood = false;
     logFileName = "flightlog.bin";
     downCount = 0;
+    downCountRadio = 0;
     packetBufferLen = 0;
     currentPacketType = 0;
 }
@@ -58,6 +58,23 @@ void Telemetry::begin(){
             DEBUG_SERIAL.println("SD Card initialized successfully!");
         }
     }
+
+    String filename;
+    int fileNumber = 1;
+    do {
+        filename = "flight" + String(fileNumber) + ".bin";
+        fileNumber++;
+    } while (SD.exists(filename.c_str()) && fileNumber < 10000); // Prevent infinite loop
+    
+    if (fileNumber >= 10000) {
+        // Fallback to timestamp-based filename if too many files exist
+        filename = "flight_" + String(millis()) + ".bin";
+    }
+
+    logFile = SD.open(filename.c_str(), FILE_WRITE);
+    if (!logFile) {
+        SDGood = false;
+    }
     
     TELEMETRY_SERIAL.addMemoryForWrite(serialBuffer, sizeof(serialBuffer));
 
@@ -71,6 +88,11 @@ void Telemetry::telemetryLoop(StateEstimation& state){
     uint64_t currentMillis = millis();
 
     handleReceive(state);
+    
+    if(state.getVehicleState() == 0 || state.getVehicleState() == 7) {
+        logFile.flush();
+        sdCounter = 0; // Reset SD counter when disarmed   
+    }
 
     if(state.getVehicleState() > 1 && state.getVehicleState() < 7) {
         if (currentMillis - lastLogMillis >= DATALOG_INTERVAL) {
@@ -78,16 +100,6 @@ void Telemetry::telemetryLoop(StateEstimation& state){
             dataLog(state);
         }
     }
-
-    // Check for vehicle state changes that require saving data
-    if (state.getVehicleState() != oldVehicleState) {
-        oldVehicleState = state.getVehicleState();
-        if (state.getVehicleState() == 0 || state.getVehicleState() == 7) {
-            // Save data and reset buffer when disarmed (0) or landed (7)
-            dumpToSD();
-        }
-    }
-
 
     if (currentMillis - lastTelemetryMillis >= TELEMETRY_INTERVAL) {
         lastTelemetryMillis = currentMillis;
@@ -116,9 +128,8 @@ void Telemetry::telemetryLoop(StateEstimation& state){
  */
 void Telemetry::sendTelemetry(StateEstimation& state) {
 
-    downCount = (downCount + 1) % UINT16_MAX; // Increment downCount and wrap around at 2^32
+    downCountRadio = (downCountRadio + 1) % UINT16_MAX; // Increment downCount and wrap around at 2^32
 
-    //DEBUG_SERIAL.println(downCount);
 
     currentPacketType = (currentPacketType + 1) % 7;
     //currentPacketType = 2; //testing
@@ -156,7 +167,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .pos_z = state.getWorldPosition()[2],
                 .time_since_launch = state.getTimeSinceLaunch(),
                 .vehicle_ms = millis(),
-                .down_count = downCount
+                .down_count = downCountRadio
             };
             break;
         case 1: // sensor telem packet
@@ -174,7 +185,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .gyro_bias_pitch = state.getGyroBias()[1],
                 .gyro_bias_roll = state.getGyroBias()[2],
                 .vehicle_ms = millis(),
-                .down_count = downCount
+                .down_count = downCountRadio
             };
             break;
         case 2: 
@@ -202,7 +213,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .momentArm = state.getMomentArm(),
                 .pyroStatus = pyroMask,
                 .vehicle_ms = millis(),
-                .down_count = downCount
+                .down_count = downCountRadio
             };
             break;
         case 3:
@@ -228,7 +239,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .relY = (float)gpsInfo.xyz.y,
                 .relZ = (float)gpsInfo.xyz.z,
                 .vehicle_ms = millis(),
-                .down_count = downCount
+                .down_count = downCountRadio
             };
             break;
         case 5: // Kalman telem packet
@@ -252,7 +263,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .posMeasuredY = state.getAdjustedGPSPosition()[1],
                 .posMeasuredZ = state.getAdjustedGPSPosition()[2],
                 .vehicle_ms = millis(),
-                .down_count = downCount
+                .down_count = downCountRadio
             };  
             break;
     };
@@ -453,14 +464,12 @@ void Telemetry::handleRTCM(const LINK80::UnpackedPacket& packet, StateEstimation
 }
 
 /**
- * @brief Logs telemetry data to PSRAM buffer in binary format.
+ * @brief Logs telemetry data to SD Card in binary format.
  */
 void Telemetry::dataLog(StateEstimation& state) {
-    // Reset buffer if vehicle state is disarmed
-    if (state.getVehicleState() == 0) {
-        telemetryBufferUsed = 0;
-        return;
-    }
+
+    telemetryBufferUsed = 0;
+
 
     downCount = (downCount + 1) % UINT16_MAX; // Increment downCount and wrap around
 
@@ -475,11 +484,6 @@ void Telemetry::dataLog(StateEstimation& state) {
     GPSInfo& gpsInfo = state.getGPSInfo();
 
     float vbat = (((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER;
-
-    // Check if we have enough space for all packet types (rough estimate)
-    if (telemetryBufferUsed + (5 * LINK80::MAX_PACKET_SIZE) > sizeof(telemetryBuffer)) {
-        return; // Not enough space
-    }
 
     // 1. State telemetry packet
     stateTelem = {
@@ -623,43 +627,10 @@ void Telemetry::dataLog(StateEstimation& state) {
         memcpy(telemetryBuffer + telemetryBufferUsed, tempBuffer, packet_size);
         telemetryBufferUsed += packet_size;
     }
-}
 
-/**
- * @brief Dumps logged telemetry data from PSRAM to SD card as binary file with unique filename.
- */
-void Telemetry::dumpToSD(){
-    if (telemetryBufferUsed == 0) return;
-
-    // Generate unique filename by finding the next available number
-    String filename;
-    int fileNumber = 1;
-    do {
-        filename = "flight" + String(fileNumber) + ".bin";
-        fileNumber++;
-    } while (SD.exists(filename.c_str()) && fileNumber < 10000); // Prevent infinite loop
-    
-    if (fileNumber >= 10000) {
-        // Fallback to timestamp-based filename if too many files exist
-        filename = "flight_" + String(millis()) + ".bin";
+    logFile.write(telemetryBuffer, telemetryBufferUsed);
+    if(downCount % 10 == 0){ //flush every 200ms if logging at 20ms
+        logFile.flush();
     }
 
-    File logFile = SD.open(filename.c_str(), FILE_WRITE);
-    if (logFile) {
-        logFile.write(telemetryBuffer, telemetryBufferUsed);
-        logFile.close();
-        
-        if (DEBUG_MODE) {
-            DEBUG_SERIAL.print("Telemetry data saved to: ");
-            DEBUG_SERIAL.println(filename);
-        }
-    } else {
-        if (DEBUG_MODE) {
-            DEBUG_SERIAL.print("Failed to create log file: ");
-            DEBUG_SERIAL.println(filename);
-        }
-    }
-
-    // Clear buffer for next use
-    telemetryBufferUsed = 0;
 }

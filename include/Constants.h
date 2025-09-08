@@ -34,8 +34,8 @@
 #define SRV6 37
 
 // Gimbal Pins
-#define YAW_SERVO SRV1
-#define PITCH_SERVO SRV3
+#define YAW_SERVO SRV5
+#define PITCH_SERVO SRV6
 
 // Roll motor controller pins
 #define PWM_DRIVER_ADDR 0x40
@@ -70,7 +70,7 @@
 #define DATALOG_INTERVAL 20 // Interval in milliseconds for data logging
 #define TELEMETRY_INTERVAL 33 // Interval in milliseconds for telemetry updates
 
-#define MAX_BYTES_PER_LOG 100 // max packet size
+#define MAX_BYTES_PER_LOG 500 // max packet size
 #define MAX_DATA_LOGS 10000 // Maximum number of data logs to store
 
 #define LOG_SEPARATOR 0xDEADBEEF
@@ -104,7 +104,7 @@
 
 #define T_ACCEL 1.5
 #define T_DECEL 2.0
-#define T_END 8.2
+#define T_END 8.0
 #define T_COAST (T_END - T_ACCEL - T_DECEL) // Time spent coasting after acceleration and deceleration phases
 
 #define DELAY_BUFFER_SIZE 12

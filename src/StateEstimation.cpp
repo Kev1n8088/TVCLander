@@ -17,7 +17,6 @@
 PWMServo PitchServo;
 PWMServo YawServo;
 
-float commandHistory[2][DELAY_BUFFER_SIZE];
 
 /**
  * @brief Constructor for StateEstimation. Initializes sensors and SPI.
@@ -33,8 +32,8 @@ StateEstimation::StateEstimation()
         RollPID(0.02,0,0.005,1000,0.5),
         PitchStabilizationPID(12,0,6,1000,0),
         YawStabilizationPID(12,0,6,1000,0),
-        YPID(0.3,0.0001,0.2,1000,0.01, 50.0, true),
-        ZPID(0.3,0.0001,0.2,1000,0.01, 50.0, true),
+        YPID(0.3,0.0001,0.15,1000,0.01, 50.0, true),
+        ZPID(0.3,0.0001,0.15,1000,0.01, 50.0, true),
         XPos(),
         YPos(),
         ZPos()//,
@@ -68,10 +67,10 @@ int StateEstimation::begin(){
     lastIMUReadMicros = micros(); // Initialize last IMU read time
 
     uint8_t failMask = 0;
-    if (beginBaro() != 0)  failMask |= 0x01;
+    //if (beginBaro() != 0)  failMask |= 0x01;
     if (beginIMU0() != 0)  failMask |= 0x02;
-    if (beginIMU1() != 0)  failMask |= 0x04;
-    if (beginMag()  != 0)  failMask |= 0x08;
+    //if (beginIMU1() != 0)  failMask |= 0x04;
+    //if (beginMag()  != 0)  failMask |= 0x08;
     GPSStatus = gps.begin();
     if (GPSStatus != 0)  failMask |= 0x10;
     sensorStatus = failMask; // Store the sensor status in the class variable
@@ -92,13 +91,9 @@ void StateEstimation::resetVariables(){
     lastGyroRemovedBias[1] = 0;
     lastGyroRemovedBias[2] = 0;
 
-    adaptiveEstimationActive = false;
-    commandBufferIndex = 0;
-    servoDelayCounter = 10;
-
     expectedGravity = Quaternion(-WORLD_GRAVITY_X, -WORLD_GRAVITY_Y, -WORLD_GRAVITY_Z);
     actualAccel = Quaternion(0, 0, 0,0 ); // Reset actual acceleration vector in body frame to zero
-    GPSLocation = Quaternion(0, 0.2, 0, 0); 
+    GPSLocation = Quaternion(0, 0.36, 0, 0); 
     worldGPSLocation = Quaternion(0, 0, 0, 0);
     GPSVelocityWorld = Quaternion(0, 0, 0, 0);
     GPSVelocityBody = Quaternion(0, 0, 0, 0);
@@ -112,7 +107,8 @@ void StateEstimation::resetVariables(){
 
     timeSinceLaunch = 0.0f; // Time since launch in seconds
     launchTime = 0.0f; // Launch time in seconds
-    
+    landingIgnitionTime = 0.0f; // Landing ignition time in seconds
+
     wheelSpeed = 0.0f; // Wheel speed in rad/s
 
     gimbalMisalign[0] = 0;
@@ -124,6 +120,8 @@ void StateEstimation::resetVariables(){
     gimbalMisalignTime = 0;
 
     gimbalForceAccumulator = 0;
+    MMOIAccumulator = 0;
+    momentArmAccumulator = 0;
 
     oriLoopMicros = 0;
     lastOriUpdate = 0;
@@ -190,9 +188,12 @@ float StateEstimation::getMass(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return 1.15f;
+        return max(1.188, 1.248 - 0.01806 * timeSinceLaunch); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
     }else{
-        return 1.05f;
+        if(landingIgnitionTime < 0.05f){
+            return 1.188; // If landing ignition time not set, landing burn has not yet started, return 1.188kg
+        }
+        return max(1.075, 1.135 - 0.01806 * (timeSinceLaunch - landingIgnitionTime - 0.05));
     }
 }
 
@@ -204,9 +205,12 @@ float StateEstimation::getMomentArm(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return 0.078f;
+        return min(0.155, 0.142 + 0.00382 * timeSinceLaunch); 
     }else{
-        return 0.097f;
+        if(landingIgnitionTime < 0.05f){
+            return 0.155; 
+        }
+        return min(0.177, 0.167 + 0.00294 * (timeSinceLaunch - landingIgnitionTime - 0.05));
     }
 }
 
@@ -218,9 +222,12 @@ float StateEstimation::getPitchYawMMOI(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return 0.033f;
+        return max(0.058825, 0.06335 - 0.00133 * timeSinceLaunch);
     }else{
-        return 0.029f;
+        if(landingIgnitionTime < 0.05f){
+            return 0.058825;
+        }
+        return max(0.05342, 0.05535 - 0.0005676 * (timeSinceLaunch - landingIgnitionTime - 0.05));
     }
 }
 
@@ -395,6 +402,7 @@ void StateEstimation::estimateState(){
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints 
+                adaptiveGimbalMisalignEstimation();
                 actuateServos();
                 digitalWrite(LAND_PYRO, LOW);
                 digitalWrite(CHUTE_PYRO, LOW);
@@ -411,6 +419,7 @@ void StateEstimation::estimateState(){
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
+                adaptiveGimbalMisalignEstimation();
                 actuateServos();
                 detectApogee();
                 digitalWrite(LAND_PYRO, LOW);
@@ -424,6 +433,7 @@ void StateEstimation::estimateState(){
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
+                adaptiveGimbalMisalignEstimation();
                 actuateServos();
                 firePyroWhenReady(); // Fire pyro when ready
             }
@@ -435,6 +445,7 @@ void StateEstimation::estimateState(){
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
                 GPSLoop();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
+                adaptiveGimbalMisalignEstimation();
                 actuateServos();
                 firePyroWhenReady(); // Keep firing pyro to ensure ignition
             }
@@ -725,8 +736,8 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
     //some code for actuation here - TODO may need sign flips
     // TODO Check signs
     float servoAngle[2];
-    servoAngle[0] = 333.57967 * pow(gimbalAngle[0], 3) + 192.1374 * gimbalAngle[0]; // in degrees Yaw
-    servoAngle[1] = 333.57967 * pow(gimbalAngle[1], 3) + 192.1374 * gimbalAngle[1]; // in degrees Pitch
+    servoAngle[0] = 586.58888 * pow(gimbalAngle[0], 3) + 217.8076 * gimbalAngle[0]; // in degrees Yaw
+    servoAngle[1] = 586.58888 * pow(gimbalAngle[1], 3) + 217.8076 * gimbalAngle[1]; // in degrees Pitch
 
     YawServo.write(90 - servoAngle[0]); // Set yaw servo angle, 90 degrees is center position
     PitchServo.write(90 + servoAngle[1]); // Set pitch servo angle, 90 degrees is center position
@@ -761,6 +772,9 @@ void StateEstimation::firePyroWhenReady(){
                 return;
             }
             digitalWrite(LAND_PYRO, HIGH); // Fire pyro
+            if(landingIgnitionTime == 0.0f){
+                landingIgnitionTime = millis() / 1000.0f; // Record landing ignition time
+            }
         }else{
             digitalWrite(CHUTE_PYRO, LOW);
             digitalWrite(LAND_PYRO, LOW); // Do not fire pyro
@@ -1067,7 +1081,7 @@ void StateEstimation::detectApogee(){
                 return;
             }
 
-            landingIgnitionAltitude = 0.745 * apogeeAltitude;
+            landingIgnitionAltitude = 0.81 * apogeeAltitude;
             vehicleState = 5;
             
         }
@@ -1103,8 +1117,11 @@ void StateEstimation::computeGimbalMisalign(){
             return;
         }
 
-        float i = getPitchYawMMOI();
-        float r = getMomentArm();
+        MMOIAccumulator += getPitchYawMMOI() * dt;
+        momentArmAccumulator += getMomentArm() * dt; //averages MMOI and moment arm over time
+
+        float i = MMOIAccumulator / gimbalMisalignTime;
+        float r = momentArmAccumulator / gimbalMisalignTime;
 
         float y = (2 * gimbalMisalignAccumulator[0] * i)/(r * f * gimbalMisalignTime * gimbalMisalignTime);
         float p = (2 * gimbalMisalignAccumulator[1] * i)/(r * f * gimbalMisalignTime * gimbalMisalignTime);
@@ -1124,16 +1141,8 @@ void StateEstimation::computeGimbalMisalign(){
 }
 
 void StateEstimation::adaptiveGimbalMisalignEstimation(){
+    //return; // Disabled for now
     if(timeSinceLaunch <= MISALIGN_CHARACTERIZATION_TIME){
-        return;
-    }
-
-    if(!adaptiveEstimationActive){
-        adaptiveEstimationActive = true; 
-        for (int i = 0; i < DELAY_BUFFER_SIZE; i++){
-            commandHistory[0][i] = 0;
-            commandHistory[1][i] = 0;
-        }
         return;
     }
 
@@ -1141,37 +1150,23 @@ void StateEstimation::adaptiveGimbalMisalignEstimation(){
     if (dt < 0.005f){
         return;
     }
+    lastGimbalMisalignMicros = micros();
 
     float currentBodyAngAccelCommand[2] = {
         bodyAngularAccelCommandVector.d, //yaw
         bodyAngularAccelCommandVector.c  //pitch
     };
 
-    commandHistory[0][commandBufferIndex] = currentBodyAngAccelCommand[0];
-    commandHistory[1][commandBufferIndex] = currentBodyAngAccelCommand[1];
-
-    int delayedIndex = (commandBufferIndex - servoDelayCounter + DELAY_BUFFER_SIZE) % DELAY_BUFFER_SIZE;
-    float delayedCommand[2] = {
-        commandHistory[0][delayedIndex],
-        commandHistory[1][delayedIndex]
-    };
-
-    lastGyroRemovedBias[0] = gyroRemovedBias[0];
-    lastGyroRemovedBias[1] = gyroRemovedBias[1];
-    commandBufferIndex = (commandBufferIndex + 1) % DELAY_BUFFER_SIZE;
-
     bool isSteady = isServoCommandSteady(currentBodyAngAccelCommand, dt);
-
-    if(dt > 0.1f){
-        return; 
-    }
 
     // get angular accel
     float actualAngularAccel[2] = {
         (gyroRemovedBias[0] - lastGyroRemovedBias[0]) / dt,
         (gyroRemovedBias[1] - lastGyroRemovedBias[1]) / dt
     };
-
+    
+    lastGyroRemovedBias[0] = gyroRemovedBias[0];
+    lastGyroRemovedBias[1] = gyroRemovedBias[1];
 
     //low pass
     float filterAlpha = 0.3f; // Adjust this value as needed
@@ -1179,16 +1174,20 @@ void StateEstimation::adaptiveGimbalMisalignEstimation(){
     filteredActualAngularAccel[1] = filterAlpha * filteredActualAngularAccel[1] + (1.0f - filterAlpha) * actualAngularAccel[1];
     filteredActualAngularAccel[2] = 0; // Roll, not used
 
+    if(dt > 0.1f){
+        return; 
+    }
+
     float angAccelError[2] = {
-        filteredActualAngularAccel[0] - delayedCommand[0],
-        filteredActualAngularAccel[1] - delayedCommand[1]
+        filteredActualAngularAccel[0] - currentBodyAngAccelCommand[0],
+        filteredActualAngularAccel[1] - currentBodyAngAccelCommand[1]
     };
 
     if(getThrust() > 10.0f && isSteady){
         float modifier = getPitchYawMMOI() / (getThrust() * getMomentArm());
         float requiredGimbalCorrection[2] = {
-            asin(constrain(angAccelError[0] * modifier, -1.0f, 1.0f)),
-            asin(constrain(angAccelError[1] * modifier, -1.0f, 1.0f))
+            -asin(constrain(angAccelError[0] * modifier, -1.0f, 1.0f)),
+            -asin(constrain(angAccelError[1] * modifier, -1.0f, 1.0f))
         };
 
         float adaptiveGain = 0.04;
