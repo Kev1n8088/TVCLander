@@ -12,6 +12,10 @@ private:
     float R_gps_pos; // Measurement noise covariance for GPS position
     float R_gps_vel; // Measurement noise covariance for GPS velocity
 
+    float q_pos;
+    float q_vel;
+    float q_accel;
+
     uint64_t lastUpdateMicros; // Last update time in microseconds
     bool initialized; // Flag to check if the filter is initialized
 
@@ -49,7 +53,18 @@ public:
     float getPositionUncertainty();
     float getVelocityUncertainty();
     float getAccelerationUncertainty();
-    
+
+    //set noises
+    void setAccelNoise(float accel_noise) {
+        R_accel = accel_noise;
+    }
+    void setGPSPosNoise(float pos_noise) {
+        R_gps_pos = pos_noise;
+    }
+    void setGPSVelNoise(float vel_noise) {
+        R_gps_vel = vel_noise;
+    }
+
     // Reset the filter
     void reset();
 

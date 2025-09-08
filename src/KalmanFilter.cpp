@@ -7,7 +7,7 @@ KalmanFilter::KalmanFilter(){
 
     // Default noise parameters
     R_accel = 0.5;    // Accelerometer variance (m/s^2)^2
-    R_gps_pos = 0.0006;  // GPS position variance (m)^2
+    R_gps_pos = 0.001;  // GPS position variance (m)^2
     R_gps_vel = 0.001;  // GPS velocity variance (m/s)^2
     
     // Initialize matrices to zero
@@ -33,7 +33,7 @@ void KalmanFilter::begin(float initial_pos, float initial_vel, float initial_acc
     P[2][2] = 1.0;    // Acceleration uncertainty
     
     // Set default process noise
-    setProcessNoise(0.001, 0.01, 0.12);
+    setProcessNoise(0.05, 0.1, 1.0);
     
     lastUpdateMicros = micros();
     initialized = true;
@@ -41,9 +41,9 @@ void KalmanFilter::begin(float initial_pos, float initial_vel, float initial_acc
 
 void KalmanFilter::setProcessNoise(float pos_noise, float vel_noise, float accel_noise) {
     // Process noise covariance matrix
-    Q[0][0] = pos_noise * pos_noise;
-    Q[1][1] = vel_noise * vel_noise;
-    Q[2][2] = accel_noise * accel_noise;
+    q_pos = pos_noise * pos_noise;
+    q_vel = vel_noise * vel_noise; 
+    q_accel = accel_noise * accel_noise;
 }
 
 void KalmanFilter::predict(float dt) {
@@ -53,6 +53,15 @@ void KalmanFilter::predict(float dt) {
     //     [0, 0,  1      ]
     
     float dt2 = dt * dt;
+    float dt3 = dt2 * dt;
+    float dt4 = dt3 * dt;
+
+    Q[0][0] = (dt4/4.0) * q_accel + (dt2) * q_pos;     // position variance
+    Q[0][1] = (dt3/2.0) * q_accel;                     // pos-vel covariance
+    Q[0][2] = (dt2/2.0) * q_accel;                     // pos-accel covariance
+    Q[1][1] = dt2 * q_accel + q_vel;                   // velocity variance
+    Q[1][2] = dt * q_accel;                            // vel-accel covariance  
+    Q[2][2] = q_accel * dt;    
     
     // Update state estimate
     float new_x[3];
