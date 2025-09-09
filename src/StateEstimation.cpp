@@ -47,7 +47,7 @@ StateEstimation::StateEstimation()
  */
 int StateEstimation::begin(){
     XPos.setGPSPosNoise(0.002); //Higher pos noise for vertical axis
-    XPos.setProcessNoise(0.05, 0.1, 6.0); // Higher process noise for vertical axis
+    XPos.setProcessNoise(0.02, 0.04, 6.0); // Higher process noise for vertical axis
     SPI.begin();
     resetVariables();
     pinMode(IMU0_DRY_PIN, INPUT); // Set the dry pin for SCH1 as input
