@@ -182,7 +182,7 @@ XYZ GPSHandler::getDistance(positionAndVelocity pos1, positionAndVelocity pos2){
     double x = cos(lat1_rad) * sin(lat2_rad) - sin(lat1_rad) * cos(lat2_rad) * cos(delta_lon);
     double bearing = atan2(y, x);
 
-    result.x = pos2.altitude - pos1.altitude + 0.2; // Altitude difference
+    result.x = pos2.altitude - pos1.altitude + 0.36; // Altitude difference
     result.y = distance * sin(bearing); // east component
     result.z = distance * cos(bearing); // north component
 

@@ -68,7 +68,7 @@
 #define DEBUG_MODE 0 // Set to 1 to enable debug mode, 0 to disable
 
 #define DATALOG_INTERVAL 20 // Interval in milliseconds for data logging
-#define TELEMETRY_INTERVAL 33 // Interval in milliseconds for telemetry updates
+#define TELEMETRY_INTERVAL 40 // Interval in milliseconds for telemetry updates
 
 #define MAX_BYTES_PER_LOG 500 // max packet size
 #define MAX_DATA_LOGS 10000 // Maximum number of data logs to store

@@ -47,7 +47,7 @@ StateEstimation::StateEstimation()
  */
 int StateEstimation::begin(){
     XPos.setGPSPosNoise(0.002); //Higher pos noise for vertical axis
-    XPos.setProcessNoise(0.1, 1.0, 3.0); // Higher process noise for vertical axis
+    XPos.setProcessNoise(0.1, 0.2, 2.0); // Higher process noise for vertical axis
     SPI.begin();
     resetVariables();
     pinMode(IMU0_DRY_PIN, INPUT); // Set the dry pin for SCH1 as input
@@ -1174,7 +1174,7 @@ void StateEstimation::adaptiveGimbalMisalignEstimation(){
     float filterAlpha = 0.3f; // Adjust this value as needed
     filteredActualAngularAccel[0] = filterAlpha * filteredActualAngularAccel[0] + (1.0f - filterAlpha) * actualAngularAccel[0];
     filteredActualAngularAccel[1] = filterAlpha * filteredActualAngularAccel[1] + (1.0f - filterAlpha) * actualAngularAccel[1];
-    filteredActualAngularAccel[2] = 0; // Roll, not used
+    //filteredActualAngularAccel[2] = 0; // Roll, not used
 
     if(dt > 0.1f){
         return; 

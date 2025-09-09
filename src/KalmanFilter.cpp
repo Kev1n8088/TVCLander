@@ -6,9 +6,9 @@ KalmanFilter::KalmanFilter(){
     lastUpdateMicros = 0;
 
     // Default noise parameters
-    R_accel = 0.5;    // Accelerometer variance (m/s^2)^2
+    R_accel = 2.0;    // Accelerometer variance (m/s^2)^2
     R_gps_pos = 0.001;  // GPS position variance (m)^2
-    R_gps_vel = 0.001;  // GPS velocity variance (m/s)^2
+    R_gps_vel = 0.1;  // GPS velocity variance (m/s)^2
     
     // Initialize matrices to zero
     for(int i = 0; i < 3; i++) {
@@ -76,7 +76,7 @@ void KalmanFilter::predict(float dt) {
     
     // Update error covariance: P = F * P * F^T + Q
     float F[3][3] = {
-        {1.0, dt, 0.5 * dt2},
+        {1.0, dt, 0.5f * dt2},
         {0.0, 1.0, dt},
         {0.0, 0.0, 1.0}
     };
@@ -84,7 +84,7 @@ void KalmanFilter::predict(float dt) {
     float FT[3][3] = {
         {1.0, 0.0, 0.0},
         {dt, 1.0, 0.0},
-        {0.5 * dt2, dt, 1.0}
+        {0.5f * dt2, dt, 1.0}
     };
     
     float temp[3][3];
