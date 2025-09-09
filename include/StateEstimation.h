@@ -71,6 +71,7 @@ private:
 
     float gyroBias[3]; // Gyro bias in rad/s
     float gyroRemovedBias[3]; // Gyro data with bias removed in rad/s. Yaw pitch roll
+    float gyroLowPassed[3]; // Low passed gyro data for lever arm compensation
 
     int vehicleState; // 0 = disarmed, 1 armed, 2 launched characterizing misalign, 3 launched guidance, 4 launched returning to vertical, //5 past apogee, 6 landing burn, 7 landed, -1 abort state;
     float launchTime; // Time of launch in seconds 
@@ -125,7 +126,7 @@ private:
     // Adaptive misalign characterization
     float lastBodyAngAccelCommand[2];
     float filteredActualAngularAccel[2];
-    float lastGyroRemovedBias[3];
+    float lastGyroRemovedBias[2];
     
     int commandBufferIndex;
     int servoDelayCounter; 

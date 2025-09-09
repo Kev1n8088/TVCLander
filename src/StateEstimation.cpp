@@ -47,7 +47,7 @@ StateEstimation::StateEstimation()
  */
 int StateEstimation::begin(){
     XPos.setGPSPosNoise(0.002); //Higher pos noise for vertical axis
-    XPos.setProcessNoise(0.1, 0.2, 2.0); // Higher process noise for vertical axis
+    XPos.setProcessNoise(0.05, 0.1, 6.0); // Higher process noise for vertical axis
     SPI.begin();
     resetVariables();
     pinMode(IMU0_DRY_PIN, INPUT); // Set the dry pin for SCH1 as input
@@ -91,7 +91,6 @@ void StateEstimation::resetVariables(){
 
     lastGyroRemovedBias[0] = 0;
     lastGyroRemovedBias[1] = 0;
-    lastGyroRemovedBias[2] = 0;
 
     expectedGravity = Quaternion(-WORLD_GRAVITY_X, -WORLD_GRAVITY_Y, -WORLD_GRAVITY_Z);
     actualAccel = Quaternion(0, 0, 0,0 ); // Reset actual acceleration vector in body frame to zero
@@ -138,6 +137,15 @@ void StateEstimation::resetVariables(){
     gyroBias[0] = 0.0f; // Gyro bias for X axis in rad/s
     gyroBias[1] = 0.0f; // Gyro bias for Y axis in rad/s
     gyroBias[2] = 0.0f; // Gyro bias for Z axis in rad/s
+
+    gyroRemovedBias[0] = 0.0f; // Gyro bias removed for X axis in rad/s
+    gyroRemovedBias[1] = 0.0f; // Gyro bias removed for Y axis in rad/s
+    gyroRemovedBias[2] = 0.0f; // Gyro bias removed for Z axis in rad/s
+
+    gyroLowPassed[0] = 0.0f; // Low passed gyro for X axis in rad/s
+    gyroLowPassed[1] = 0.0f; // Low passed gyro for Y axis in rad/s
+    gyroLowPassed[2] = 0.0f; // Low passed gyro for Z axis in rad/s
+
 
     attitudeSetpoint[0] = 0.0f; // Yaw setpoint in rad
     attitudeSetpoint[1] = 0.0f; // Pitch setpoint in rad
@@ -524,7 +532,7 @@ void StateEstimation::GPSLoop(){
     adjustedGPSPosition[1] = gps.getGPSInfo().xyz.y - worldGPSLocation.c;
     adjustedGPSPosition[2] = gps.getGPSInfo().xyz.z - worldGPSLocation.d; // Adjust GPS position for lever arm and orientation
 
-    GPSVelocityBody = Quaternion(0, gyroRemovedBias[2], gyroRemovedBias[1], gyroRemovedBias[0]) * GPSLocation; // Compute cross product of GPS location and gyro removed bias to get velocity in body frame
+    GPSVelocityBody = Quaternion(0, gyroLowPassed[2], gyroLowPassed[1], gyroLowPassed[0]) * GPSLocation; // Compute cross product of GPS location and gyro low passed to get velocity in body frame
     GPSVelocityBody.a = 0; // Scalar part zero to ensure pure vector quaternion
     GPSVelocityWorld = ori.orientation.rotate(GPSVelocityBody); // Rotate GPS velocity vector to world frame
 
@@ -548,9 +556,9 @@ void StateEstimation::GPSLoop(){
     worldVelocity[2] = ZPos.getVelocity(); // Update world frame Z velocity
 
     // Update world frame acceleration from GPS data
-    measuredWorldAccel[0] = XPos.getAcceleration(); // Update world frame X acceleration
-    measuredWorldAccel[1] = YPos.getAcceleration(); // Update world frame Y acceleration
-    measuredWorldAccel[2] = ZPos.getAcceleration(); // Update world frame Z acceleration
+    worldAccel[0] = XPos.getAcceleration(); // Update world frame X acceleration
+    worldAccel[1] = YPos.getAcceleration(); // Update world frame Y acceleration
+    worldAccel[2] = ZPos.getAcceleration(); // Update world frame Z acceleration
 
     // Update accel uncertainties
     accelUncertainty[0] = XPos.getAccelerationUncertainty(); // Update X acceleration uncertainty
@@ -706,7 +714,7 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
     // roll mixer
     angularAccelCommandVector = Quaternion(0, 0, angularAccelCommand[1], angularAccelCommand[0]); // pitch yaw
 
-    float roll_feedforward = gyroRemovedBias[2] * ROLL_FEEDFORWARD_T;
+    float roll_feedforward = gyroLowPassed[2] * ROLL_FEEDFORWARD_T;
 
     rollRateCompensatedBodyToWorld = ori.orientation * Quaternion().from_axis_angle(roll_feedforward, 1, 0, 0);
 
@@ -835,6 +843,12 @@ void StateEstimation::oriLoop(){
     float dtOri = (float)(oriLoopMicros - lastOriUpdate) / 1000000.0f; // Convert to seconds
     lastOriUpdate = oriLoopMicros;
     ori.update(gyroRemovedBias[0], gyroRemovedBias[1], gyroRemovedBias[2], dtOri); 
+    
+    float filterAlpha = 0.1;
+    //Simple low pass, used for lever arm correction
+    gyroLowPassed[0] = filterAlpha * gyroRemovedBias[0] + (1 - filterAlpha) * gyroLowPassed[0];
+    gyroLowPassed[1] = filterAlpha * gyroRemovedBias[1] + (1 - filterAlpha) * gyroLowPassed[1];
+    gyroLowPassed[2] = filterAlpha * gyroRemovedBias[2] + (1 - filterAlpha) * gyroLowPassed[2];
 }
 
 /**
