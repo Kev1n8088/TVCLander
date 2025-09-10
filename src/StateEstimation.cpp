@@ -195,7 +195,7 @@ float StateEstimation::getMass(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(1.188, 1.248 - 0.01806 * (timeSinceLaunch + 0.28)); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
+        return max(1.188, 1.248 - 0.01806 * (timeSinceLaunch + 0.4)); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
     }else{
         if(landingIgnitionTime < 0.05f){
             return 1.188; // If landing ignition time not set, landing burn has not yet started, return 1.188kg
@@ -212,7 +212,7 @@ float StateEstimation::getMomentArm(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return min(0.155, 0.142 + 0.00382 * (timeSinceLaunch + 0.28)); 
+        return min(0.155, 0.142 + 0.00382 * (timeSinceLaunch + 0.4)); 
     }else{
         if(landingIgnitionTime < 0.05f){
             return 0.155; 
@@ -229,7 +229,7 @@ float StateEstimation::getPitchYawMMOI(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(0.058825, 0.06335 - 0.00133 * (timeSinceLaunch + 0.28));
+        return max(0.058825, 0.06335 - 0.00133 * (timeSinceLaunch + 0.4));
     }else{
         if(landingIgnitionTime < 0.05f){
             return 0.058825;
@@ -1187,8 +1187,8 @@ void StateEstimation::adaptiveGimbalMisalignEstimation(){
             -asin(constrain(angAccelError[1] * modifier, -1.0f, 1.0f))
         };
 
-        float adaptiveGain = 0.001;
-        
+        float adaptiveGain = 0.0005f;
+
         gimbalMisalign[0] += requiredGimbalCorrection[0] * adaptiveGain;
         gimbalMisalign[1] += requiredGimbalCorrection[1] * adaptiveGain;
 
