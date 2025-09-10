@@ -30,9 +30,6 @@ private:
 
     PID PitchPID;
     PID YawPID;
-    PID RollPID;
-    PID PitchStabilizationPID;
-    PID YawStabilizationPID;
     PID YPID;
     PID ZPID;
 

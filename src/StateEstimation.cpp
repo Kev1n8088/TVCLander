@@ -27,13 +27,10 @@ StateEstimation::StateEstimation()
       bmp(),
       lis2mdl(12345), 
       gps(),
-      PitchPID(12,0,6,1000,0),
-        YawPID(12,0,6,1000,0),
-        RollPID(0.02,0,0.005,1000,0.5),
-        PitchStabilizationPID(12,0,6,1000,0),
-        YawStabilizationPID(12,0,6,1000,0),
-        YPID(0.3,0.0001,0.15,1000,0.01, 50.0, true),
-        ZPID(0.3,0.0001,0.15,1000,0.01, 50.0, true),
+      PitchPID(12,0,8,1000,0),
+        YawPID(12,0,8,1000,0),
+        YPID(0.3,0.0001,0.15,1000,0.01),
+        ZPID(0.3,0.0001,0.15,1000,0.01),
         XPos(),
         YPos(),
         ZPos()//,
@@ -400,7 +397,6 @@ void StateEstimation::estimateState(){
                 digitalWrite(LAND_PYRO, LOW);
                 digitalWrite(CHUTE_PYRO, LOW);
             }
-            // TODO: Lock servos in center position
             if (timeSinceLaunch > MISALIGN_CHARACTERIZATION_TIME){
                 vehicleState = 3;
             }
@@ -416,26 +412,8 @@ void StateEstimation::estimateState(){
                 actuateServos();
                 digitalWrite(LAND_PYRO, LOW);
                 digitalWrite(CHUTE_PYRO, LOW);
-            }
-            // TODO: insert code for updating servos
-            if (timeSinceLaunch > GIMBAL_STABILIZATION_TIME){
-                vehicleState = 4;
-            }
-            break;
-        case 4: // Return to vertical state
-            if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
-                readIMU0(); // Read IMU data only if DRY
-                oriLoop(); // Call orientation loop to update orientation
-                accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
-                PIDLoop(); // Call PID loop to compute attitude setpoints
-                adaptiveGimbalMisalignEstimation();
-                actuateServos();
                 detectApogee();
-                digitalWrite(LAND_PYRO, LOW);
-                digitalWrite(CHUTE_PYRO, LOW);
             }
-            break;
         case 5: // Past apogee state
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
@@ -659,7 +637,6 @@ float StateEstimation::calculateTrajectoryVelocity(float target, float time) {
  * @brief PID control loop for attitude and position control.
  */
 void StateEstimation::PIDLoop(){
-    // TODO may need sign flips
 
     positionSetpoint[0] = calculateTrajectory(Y_TARGET, timeSinceLaunch); // Calculate Y position setpoint based on trajectory
     positionSetpoint[1] = calculateTrajectory(Z_TARGET, timeSinceLaunch); // Calculate Z position setpoint based on trajectory
@@ -688,11 +665,6 @@ void StateEstimation::PIDLoop(){
     YawPID.compute(attitudeSetpoint[0], getEulerAngle()[0]);
     PitchPID.compute(attitudeSetpoint[1], getEulerAngle()[1]);
 
-    YawStabilizationPID.compute(0, getEulerAngle()[0]);
-    PitchStabilizationPID.compute(0, getEulerAngle()[1]);
-
-    RollPID.compute(0, gyroRemovedBias[2]);
-
 }
 
 
@@ -718,14 +690,9 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
     //float dt = (float)(micros() - lastActuatorMicros) / 1000000.0f; // Convert to seconds
     lastActuatorMicros = micros(); // Update last actuator time
 
-    //seperate controllers instead of changing constants to prevent derivative kick
-    if (vehicleState == 4 || vehicleState == 65){ // // If in return to vertical state or stabilization test state
-        angularAccelCommand[0] = YawStabilizationPID.getOutput(); // Yaw angular acceleration command
-        angularAccelCommand[1] = PitchStabilizationPID.getOutput(); // Pitch angular acceleration command
-    }else{
-        angularAccelCommand[0] = YawPID.getOutput(); // Yaw angular acceleration command
-        angularAccelCommand[1] = PitchPID.getOutput(); // Pitch angular acceleration command
-    }
+
+    angularAccelCommand[0] = YawPID.getOutput(); // Yaw angular acceleration command
+    angularAccelCommand[1] = PitchPID.getOutput(); // Pitch angular acceleration command
 
     // roll mixer
     angularAccelCommandVector = Quaternion(0, 0, angularAccelCommand[1], angularAccelCommand[0]); // pitch yaw
@@ -1039,11 +1006,8 @@ uint8_t StateEstimation::setVehicleState(int state){
                 ZPos.reset();
                 YPID.reset();
                 ZPID.reset();
-                YawStabilizationPID.reset();
-                PitchStabilizationPID.reset();
                 YawPID.reset();
                 PitchPID.reset();
-                RollPID.reset();
                 //RollMotor.stop(); // Stop roll motor
                 vehicleState = 0; // Set vehicle state to disarmed
                 break;
@@ -1105,7 +1069,7 @@ void StateEstimation::detectApogee(){
     }   
     if (worldPosition[0] < apogeeAltitude - BELOW_APOGEE_THRESHOLD){
         // TODO: Smarter ignition altitude adjustment
-        if (vehicleState == 4){
+        if (vehicleState == 4 || vehicleState == 3){
             if(abs(ori.toEuler().yaw) > PI / 4 || abs(ori.toEuler().pitch) > PI / 4 || ori.orientation.a < 0){ // ABORT if too tilted or pointing backward
                 abort();
                 return;
@@ -1223,7 +1187,7 @@ void StateEstimation::adaptiveGimbalMisalignEstimation(){
             -asin(constrain(angAccelError[1] * modifier, -1.0f, 1.0f))
         };
 
-        float adaptiveGain = 0.04;
+        float adaptiveGain = 0.001;
         
         gimbalMisalign[0] += requiredGimbalCorrection[0] * adaptiveGain;
         gimbalMisalign[1] += requiredGimbalCorrection[1] * adaptiveGain;
