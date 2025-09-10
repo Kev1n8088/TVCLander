@@ -27,6 +27,7 @@ public:
         MISALIGN_TEST = 24,
         TEST_PREP = 25,
         PYRO_TEST = 26,
+        ABORT = 27,
         
         // Vehicle -> Ground data
         STATE_TELEMETRY = 155,

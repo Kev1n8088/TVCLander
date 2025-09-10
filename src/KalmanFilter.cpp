@@ -6,9 +6,9 @@ KalmanFilter::KalmanFilter(){
     lastUpdateMicros = 0;
 
     // Default noise parameters
-    R_accel = 2.0;    // Accelerometer variance (m/s^2)^2
-    R_gps_pos = 0.001;  // GPS position variance (m)^2
-    R_gps_vel = 0.1;  // GPS velocity variance (m/s)^2
+    R_accel = 5.0;    // Accelerometer variance (m/s^2)^2
+    R_gps_pos = 0.005;  // GPS position variance (m)^2
+    R_gps_vel = 0.2;  // GPS velocity variance (m/s)^2
     
     // Initialize matrices to zero
     for(int i = 0; i < 3; i++) {
@@ -33,7 +33,7 @@ void KalmanFilter::begin(float initial_pos, float initial_vel, float initial_acc
     P[2][2] = 1.0;    // Acceleration uncertainty
     
     // Set default process noise
-    setProcessNoise(0.01, 0.03, 4.0);
+    setProcessNoise(0.005, 0.005, 0.15);
     
     lastUpdateMicros = micros();
     initialized = true;

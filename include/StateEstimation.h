@@ -127,9 +127,9 @@ private:
     float lastBodyAngAccelCommand[2];
     float filteredActualAngularAccel[2];
     float lastGyroRemovedBias[2];
-    
-    int commandBufferIndex;
-    int servoDelayCounter; 
+
+
+
 
 
     int beginBaro();
