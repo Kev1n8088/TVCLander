@@ -198,12 +198,12 @@ float StateEstimation::getMass(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(1.188, 1.248 - 0.01806 * timeSinceLaunch); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
+        return max(1.188, 1.248 - 0.01806 * (timeSinceLaunch + 0.28)); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
     }else{
         if(landingIgnitionTime < 0.05f){
             return 1.188; // If landing ignition time not set, landing burn has not yet started, return 1.188kg
         }
-        return max(1.075, 1.135 - 0.01806 * (timeSinceLaunch - landingIgnitionTime - 0.05));
+        return max(1.075, 1.135 - 0.01806 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -215,12 +215,12 @@ float StateEstimation::getMomentArm(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return min(0.155, 0.142 + 0.00382 * timeSinceLaunch); 
+        return min(0.155, 0.142 + 0.00382 * (timeSinceLaunch + 0.28)); 
     }else{
         if(landingIgnitionTime < 0.05f){
             return 0.155; 
         }
-        return min(0.177, 0.167 + 0.00294 * (timeSinceLaunch - landingIgnitionTime - 0.05));
+        return min(0.177, 0.167 + 0.00294 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -232,12 +232,12 @@ float StateEstimation::getPitchYawMMOI(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(0.058825, 0.06335 - 0.00133 * timeSinceLaunch);
+        return max(0.058825, 0.06335 - 0.00133 * (timeSinceLaunch + 0.28));
     }else{
         if(landingIgnitionTime < 0.05f){
             return 0.058825;
         }
-        return max(0.05342, 0.05535 - 0.0005676 * (timeSinceLaunch - landingIgnitionTime - 0.05));
+        return max(0.05342, 0.05535 - 0.0005676 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
