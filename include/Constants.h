@@ -102,9 +102,9 @@
 #define ROLL_FEEDFORWARD_T -0.1f
 
 
-#define T_ACCEL 1.5
-#define T_DECEL 2.0
-#define T_END 8.0
+#define T_ACCEL 1
+#define T_DECEL 1.5
+#define T_END 7.4
 #define T_COAST (T_END - T_ACCEL - T_DECEL) // Time spent coasting after acceleration and deceleration phases
 
 #define DELAY_BUFFER_SIZE 12
