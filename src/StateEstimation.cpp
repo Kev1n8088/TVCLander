@@ -857,7 +857,8 @@ void StateEstimation::accelLoop(){
     //float dtAccel = (float)(accelLoopMicros - lastAccelUpdate) / 1000000.0f; // Convert to seconds
     lastAccelUpdate = accelLoopMicros;
 
-    thrust = accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle
+    float alpha = 0.1; // Low pass filter constant
+    thrust = thrust * (1.0 - alpha) + alpha * accelCalibrated[0] * getMass(); // Calculate thrust in Newtons based on acceleration in body frame and mass of the vehicle, with low pass filter
 
     if(gps.getGPSInfo().fixType > 3){ //Ensure RTK Fix or RTK float
         XPos.updateAccelerometer(measuredWorldAccel[0]);
