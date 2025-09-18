@@ -40,10 +40,11 @@ void setup() {
   pixels.clear();
   pixels.show();
 
-  DEBUG_SERIAL.println(StateEstimate.begin()); // Initialize state estimation
+  StateEstimate.begin();
+  //DEBUG_SERIAL.println(); // Initialize state estimation
   TelemetrySystem.begin(); // Initialize telemetry system
   //StateEstimate.forceVehicleState(1); // Set initial vehicle state to disarmed
-  DEBUG_SERIAL.println("Setup complete1");
+  //DEBUG_SERIAL.println("Setup complete1");
 
   endSetupTime = millis(); // Record the end time of setup for debugging purposes
 }

@@ -99,6 +99,8 @@ void StateEstimation::resetVariables(){
     bodyAngularAccelCommandVector = Quaternion(0, 0, 0, 0);
     rollRateCompensatedBodyToWorld = Quaternion(0, 0, 0, 0);
 
+    lastStateEstimateMicros = 0; // Last time state estimation was run in microseconds
+
     
     // init variables
     resetLinearVariables();
@@ -353,7 +355,7 @@ void StateEstimation::estimateState(){
 
     gps.gpsLoop(); // Update GPS data
 
-    if(vehicleState > 4 && vehicleState < 7){
+    if(vehicleState > 4 && vehicleState < 6){
         if (gps.getGPSInfo().fixType < 4) { // If lost GPS
             abort();
         }
