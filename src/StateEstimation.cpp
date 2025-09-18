@@ -1229,6 +1229,6 @@ bool StateEstimation::isServoCommandSteady(float currentCommand[2], float dt){
     lastBodyAngAccelCommand[0] = currentCommand[0];
     lastBodyAngAccelCommand[1] = currentCommand[1];
 
-    float maxCommandRate = 0.25f; // rad/s³ - tune this threshold
+    float maxCommandRate = 3.0f; // rad/s³ - tune this threshold
     return (commandRate[0] < maxCommandRate && commandRate[1] < maxCommandRate);
 }
