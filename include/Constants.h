@@ -43,7 +43,7 @@
 #define ROLL_MINUS 0
 #define ROLL_PLUS 1
 
-#define ACTUATOR_INTERVAL_US 20000 // Actuation interval in micros
+#define ACTUATOR_INTERVAL_US 10000 // Actuation interval in micros
 
 #define LAND_PYRO 32
 #define LAND_CONTINUITY 26
@@ -109,6 +109,7 @@
 
 #define DELAY_BUFFER_SIZE 12
 
-#endif // CONSTANTS_H
+#define MAX_GIMBAL_RATE_RAD_S 1.0f // Maximum gimbal rate in rad/s
 
+#endif // CONSTANTS_H
 

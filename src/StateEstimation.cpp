@@ -195,12 +195,12 @@ float StateEstimation::getMass(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(1.188, 1.248 - 0.01806 * (timeSinceLaunch + 0.26)); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
+        return max(1.176, 1.236 - 0.01806 * (timeSinceLaunch + 0.26)); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 1.188; // If landing ignition time not set, landing burn has not yet started, return 1.188kg
+            return 1.176; // If landing ignition time not set, landing burn has not yet started, return 1.188kg
         }
-        return max(1.075, 1.135 - 0.01806 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return max(1.063, 1.123 - 0.01806 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -212,12 +212,12 @@ float StateEstimation::getMomentArm(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return min(0.155, 0.142 + 0.00382 * (timeSinceLaunch + 0.26)); 
+        return min(0.1538, 0.1403 + 0.003867 * (timeSinceLaunch + 0.26)); 
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 0.155; 
+            return 0.1538; 
         }
-        return min(0.177, 0.167 + 0.00294 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return min(0.1751, 0.1654 + 0.002764 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -229,12 +229,12 @@ float StateEstimation::getPitchYawMMOI(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(0.058825, 0.06335 - 0.00133 * (timeSinceLaunch + 0.26));
+        return max(0.058143, 0.062615 - 0.001278 * (timeSinceLaunch + 0.26));
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 0.058825;
+            return 0.058143;
         }
-        return max(0.05342, 0.05535 - 0.0005676 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return max(0.052816, 0.054712 - 0.0005417 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -697,7 +697,7 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
         return;
     }
 
-    //float dt = (float)(micros() - lastActuatorMicros) / 1000000.0f; // Convert to seconds
+    float dt = (float)(micros() - lastActuatorMicros) / 1000000.0f; // Convert to seconds
     lastActuatorMicros = micros(); // Update last actuator time
 
 
@@ -713,21 +713,33 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
 
     bodyAngularAccelCommandVector = rollRateCompensatedBodyToWorld.conj().rotate(angularAccelCommandVector);
 
-    gimbalAngle[1] =  bodyAngularAccelCommandVector.c; // Pitch gimbal angle command
-    gimbalAngle[0] = bodyAngularAccelCommandVector.d; // Yaw gimbal angle command
+    float newGimbalAngle[2];
+
+    newGimbalAngle[1] =  bodyAngularAccelCommandVector.c; // Pitch gimbal angle command
+    newGimbalAngle[0] = bodyAngularAccelCommandVector.d; // Yaw gimbal angle command
 
     // convert from angular acceleration to gimbal angle
     float modifier = getPitchYawMMOI() / (getThrust() * getMomentArm()); // Modifier to convert angular acceleration to gimbal angle
 
-    gimbalAngle[0] = asin(max(min(gimbalAngle[0] * modifier, 1), -1));
-    gimbalAngle[1] = asin(max(min(gimbalAngle[1] * modifier, 1), -1));
+    newGimbalAngle[0] = asin(max(min(newGimbalAngle[0] * modifier, 1), -1));
+    newGimbalAngle[1] = asin(max(min(newGimbalAngle[1] * modifier, 1), -1));
 
     if(includePID == false){ // If includePID is false, do not include PID outputs and only has gimbal misalignment
-        gimbalAngle[0] = 0;
-        gimbalAngle[1] = 0;
+        newGimbalAngle[0] = 0;
+        newGimbalAngle[1] = 0;
     }
-    gimbalAngle[0] += gimbalMisalign[0]; // Add gimbal misalignment to yaw gimbal angle command
-    gimbalAngle[1] += gimbalMisalign[1]; // Add gimbal misalignment to pitch gimbal angle command
+    newGimbalAngle[0] += gimbalMisalign[0]; // Add gimbal misalignment to yaw gimbal angle command
+    newGimbalAngle[1] += gimbalMisalign[1]; // Add gimbal misalignment to pitch gimbal angle command
+
+    float gimbalRate[2];
+    gimbalRate[0] = (newGimbalAngle[0] - gimbalAngle[0]) / dt; // Yaw gimbal rate
+    gimbalRate[1] = (newGimbalAngle[1] - gimbalAngle[1]) / dt; // Pitch gimbal rate
+    
+    gimbalRate[0] = min(max(gimbalRate[0], -MAX_GIMBAL_RATE_RAD_S), MAX_GIMBAL_RATE_RAD_S); // Limit gimbal rate to +/- MAX_GIMBAL_RATE_RAD_S
+    gimbalRate[1] = min(max(gimbalRate[1], -MAX_GIMBAL_RATE_RAD_S), MAX_GIMBAL_RATE_RAD_S); // Limit gimbal rate to +/- MAX_GIMBAL_RATE_RAD_S
+
+    gimbalAngle[0] += gimbalRate[0] * dt; // Update yaw gimbal angle
+    gimbalAngle[1] += gimbalRate[1] * dt; // Update pitch gimbal angle
 
     gimbalAngle[0] = min(max(gimbalAngle[0], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD
     gimbalAngle[1] = min(max(gimbalAngle[1], -GIMBAL_LIMIT_RAD), GIMBAL_LIMIT_RAD); // Limit gimbal angle to +/- GIMBAL_LIMIT_RAD
@@ -779,7 +791,7 @@ void StateEstimation::firePyroWhenReady(){
         if(worldPosition[0] > PYRO_LOCKOUT_ALT){
             digitalWrite(LAND_PYRO, HIGH); // Fire pyro
             if(landingIgnitionTime == 0.0f){
-                landingIgnitionTime = millis() / 1000.0f; // Record landing ignition time
+                landingIgnitionTime = timeSinceLaunch; // Record landing ignition time
             }
         }else{
             digitalWrite(LAND_PYRO, LOW); // Do not fire pyro
@@ -1217,6 +1229,6 @@ bool StateEstimation::isServoCommandSteady(float currentCommand[2], float dt){
     lastBodyAngAccelCommand[0] = currentCommand[0];
     lastBodyAngAccelCommand[1] = currentCommand[1];
 
-    float maxCommandRate = 5.0f; // rad/s³ - tune this threshold
+    float maxCommandRate = 0.25f; // rad/s³ - tune this threshold
     return (commandRate[0] < maxCommandRate && commandRate[1] < maxCommandRate);
 }
