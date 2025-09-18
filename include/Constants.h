@@ -85,7 +85,7 @@
 
 #define LAUNCH_ACCEL_THRESHOLD 12.5 // m/s^2
 #define MISALIGN_CHARACTERIZATION_TIME 0.3 //s, T+ at which we stop characterizing gimbal misalign
-#define GIMBAL_STABILIZATION_TIME 2.1 //s, T+ at which we switch to stabilize mode
+#define GIMBAL_STABILIZATION_TIME 2.5 //s, T+ at which we switch to stabilize mode
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
 
@@ -102,9 +102,9 @@
 #define ROLL_FEEDFORWARD_T -0.1f
 
 
-#define T_ACCEL 1
-#define T_DECEL 1.5
-#define T_END 7.4
+#define T_ACCEL 0.5
+#define T_DECEL 1.0
+#define T_END 7.5
 #define T_COAST (T_END - T_ACCEL - T_DECEL) // Time spent coasting after acceleration and deceleration phases
 
 #define DELAY_BUFFER_SIZE 12

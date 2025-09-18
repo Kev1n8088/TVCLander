@@ -29,8 +29,8 @@ StateEstimation::StateEstimation()
       gps(),
       PitchPID(12,0,8,1000,0),
         YawPID(12,0,8,1000,0),
-        YPID(0.3,0.0001,0.15,1000,0.01),
-        ZPID(0.3,0.0001,0.15,1000,0.01),
+        YPID(0.3,0.0001,0.1,1000,0.01),
+        ZPID(0.3,0.0001,0.1,1000,0.01),
         XPos(),
         YPos(),
         ZPos()//,
@@ -402,6 +402,7 @@ void StateEstimation::estimateState(){
             }
             break;
         case 3: //Standard guidance state
+        case 4: //return to vertical state
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
@@ -413,6 +414,9 @@ void StateEstimation::estimateState(){
                 digitalWrite(LAND_PYRO, LOW);
                 digitalWrite(CHUTE_PYRO, LOW);
                 detectApogee();
+            }
+            if(vehicleState == 3 && timeSinceLaunch > GIMBAL_STABILIZATION_TIME){ // After gimbal stabilization time, switch to return to vertical state
+                vehicleState = 4;
             }
         case 5: // Past apogee state
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
@@ -657,10 +661,16 @@ void StateEstimation::PIDLoop(){
     YPID.compute(positionSetpoint[0], worldPosition[1], velocitySetpoint[0] - worldVelocity[1], true);
     ZPID.compute(positionSetpoint[1], worldPosition[2], velocitySetpoint[1] - worldVelocity[2], true);
 
-    float alpha = 0.02; // Low pass filter constant
+    float alpha = 0.1; // Low pass filter constant
+    
 
     attitudeSetpoint[0] = attitudeSetpoint[0] * (1 - alpha) + (min(max(YPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD) * alpha); // Yaw
     attitudeSetpoint[1] = attitudeSetpoint[1] * (1 - alpha) + (-min(max(ZPID.getOutput(), -MAX_ATTITIDE_SETPOINT_RAD), MAX_ATTITIDE_SETPOINT_RAD) * alpha); // Pitch
+
+    if(vehicleState == 4 || vehicleState == 65){ // only in return to vertical state or test state
+        attitudeSetpoint[0] = 0.0f; // Yaw setpoint to zero after 2.5 seconds post launch
+        attitudeSetpoint[1] = 0.0f; // Pitch setpoint to zero after 2.5 seconds post launch
+    }
 
     YawPID.compute(attitudeSetpoint[0], getEulerAngle()[0]);
     PitchPID.compute(attitudeSetpoint[1], getEulerAngle()[1]);
