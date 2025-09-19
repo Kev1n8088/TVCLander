@@ -601,7 +601,7 @@ float StateEstimation::calculateTrajectory(float target, float time){
     }else{
         //decel phase
         float dAccel = v_max * T_ACCEL * 0.5;
-        float dCoast = v_max * (time - T_ACCEL); // Distance traveled during coast phase
+        float dCoast = v_max * T_COAST; // Distance traveled during coast phase
 
         float tDecelCurrent = time - (T_ACCEL + T_COAST); // Time in deceleration phase
         float phaseProgress = tDecelCurrent / T_DECEL; // Progress in deceleration phase
