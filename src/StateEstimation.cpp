@@ -27,14 +27,13 @@ StateEstimation::StateEstimation()
       bmp(),
       lis2mdl(12345), 
       gps(),
-      PitchPID(12,0,8,1000,0),
-        YawPID(12,0,8,1000,0),
-        YPID(0.3,0.0001,0.1,1000,0.01),
-        ZPID(0.3,0.0001,0.1,1000,0.01),
+      PitchPID(12,0,6,1000,0, 100.0, true),
+        YawPID(12,0,6,1000,0, 100.0, true),
+        YPID(0.2,0.0001,0.25,1000,0.01),
+        ZPID(0.2,0.0001,0.25,1000,0.01),
         XPos(),
         YPos(),
-        ZPos()//,
-        //RollMotor()
+        ZPos()
 {
 }
 

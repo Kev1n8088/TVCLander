@@ -12,7 +12,7 @@
  * @param N Filter coefficient for derivative filtering (higher = less filtering). 0 means no filter
  * @param adaptiveFiltering Whether to use adaptive filtering for the derivative
  */
-PID::PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax, float N, bool adaptiveFiltering){
+PID::PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax, float N, bool derivativeOnMeasurement){
     this->Kp = Kp;
     this->Ki = Ki;
     this->Kd = Kd;
@@ -24,7 +24,7 @@ PID::PID(float Kp, float Ki, float Kd, unsigned long dt, float integralMax, floa
     this->lastError = 0.0;
     this->N = N;
     this->filteredDerivative = 0.0;
-    this->adaptiveFiltering = adaptiveFiltering;
+    this->derivativeOnMeasurement = derivativeOnMeasurement;
 }
 
 /**
@@ -49,18 +49,16 @@ void PID::compute(float setpoint, float measuredValue, float derivative, bool us
 
     float error = setpoint - measuredValue;
     float usedN = N;
-    if(adaptiveFiltering){
-        if (error < 0.5){
-            usedN = N / 10.0; // Aggressive filtering for small errors
-        }else if (error < 1.0){
-            usedN = N / 5.0;
-        }
+    float derivError; //error used for derivative calculation
+    if(derivativeOnMeasurement){
+        derivError = -measuredValue;
+    }else{
+        derivError = error;
     }
 
     float timeInSeconds = time / 1000000.0; // convert to seconds
 
-    // Calculate raw derivative
-    float rawDerivative = (error - lastError) / timeInSeconds;
+    float rawDerivative = (derivError - lastError) / timeInSeconds;
     
     // Apply derivative filter using first-order low-pass filter
     // filteredDerivative(k) = (N * rawDerivative(k) + filteredDerivative(k-1)) / (N + 1)
@@ -76,7 +74,7 @@ void PID::compute(float setpoint, float measuredValue, float derivative, bool us
         filteredDerivative = derivative;
     }
 
-    lastError = error;
+    lastError = derivError;
     
     // Update integral with anti-windup
     integral += Ki * error * timeInSeconds;
