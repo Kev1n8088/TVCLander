@@ -102,14 +102,14 @@
 #define ROLL_FEEDFORWARD_T -0.1f
 
 
-#define T_ACCEL 0.5
-#define T_DECEL 1.0
+#define T_ACCEL 3.5
+#define T_DECEL 2.0
 #define T_END 7.5
 #define T_COAST (T_END - T_ACCEL - T_DECEL) // Time spent coasting after acceleration and deceleration phases
 
 #define DELAY_BUFFER_SIZE 12
 
-#define MAX_GIMBAL_RATE_RAD_S 1.0f // Maximum gimbal rate in rad/s
+#define MAX_GIMBAL_RATE_RAD_S 2.0f // Maximum gimbal rate in rad/s
 
 #endif // CONSTANTS_H
 
