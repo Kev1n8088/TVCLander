@@ -600,7 +600,7 @@ float StateEstimation::calculateTrajectory(float target, float time){
     }else{
         //decel phase
         float dAccel = v_max * T_ACCEL * 0.5;
-        float dCoast = v_max * (time - T_ACCEL); // Distance traveled during coast phase
+        float dCoast = v_max * T_COAST; // Distance traveled during coast phase
 
         float tDecelCurrent = time - (T_ACCEL + T_COAST); // Time in deceleration phase
         float phaseProgress = tDecelCurrent / T_DECEL; // Progress in deceleration phase
@@ -779,7 +779,7 @@ void StateEstimation::firePyroWhenReady(){
 
     if (vehicleState == 5 || vehicleState == 6) { // If vehicle is past apogee or in landing burn state
         if(landingIgnitionTime == 0.0f){ //Has not committed to ignition yet, can still abort
-            if(abs(ori.toEuler().yaw) > PI / 4 || abs(ori.toEuler().pitch) > PI / 4 || ori.orientation.a < 0){ // ABORT if too tilted or pointing backward
+            if(abs(ori.toEuler().yaw) > PI / 8 || abs(ori.toEuler().pitch) > PI / 8 ){ // ABORT if too tilted or pointing backward
                 abort();
                 return;
             }
@@ -1093,7 +1093,7 @@ void StateEstimation::detectApogee(){
     if (worldPosition[0] < apogeeAltitude - BELOW_APOGEE_THRESHOLD){
         // TODO: Smarter ignition altitude adjustment
         if (vehicleState == 4 || vehicleState == 3){
-            if(abs(ori.toEuler().yaw) > PI / 4 || abs(ori.toEuler().pitch) > PI / 4 || ori.orientation.a < 0){ // ABORT if too tilted or pointing backward
+            if(abs(ori.toEuler().yaw) > PI / 8 || abs(ori.toEuler().pitch) > PI / 8 ){ // ABORT if too tilted or pointing backward
                 abort();
                 return;
             }
