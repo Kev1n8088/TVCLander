@@ -30,11 +30,9 @@ public:
         ABORT = 27,
         
         // Vehicle -> Ground data
-        STATE_TELEMETRY = 155,
-        SENSORS = 156,
-        GPS = 157,
-        LANDER = 158,
-        KALMAN = 159
+        // Merging multiple data types into fewer message types to save bandwidth
+        STATE_TELEMETRY = 155, //STATE, SENSORS, KALMAN 
+        GPS = 157, // GPS, LANDER
     };
     
     // Vehicle state structure for telemetry
@@ -45,22 +43,34 @@ public:
         float vel_x, vel_y, vel_z;
         float pos_x, pos_y, pos_z;
         float time_since_launch;
+        uint8_t failmask;
+        bool sd_good;
+        float gyro_yaw, gyro_pitch, gyro_roll;
+        float accelerometer_x, accelerometer_y, accelerometer_z;
+        float baro_altitude;
+        float gyro_bias_yaw, gyro_bias_pitch, gyro_bias_roll;
+        float accUncX;
+        float accUncY;
+        float accUncZ;
+        float velUncX;
+        float velUncY;
+        float velUncZ;
+        float posUncX;
+        float posUncY;
+        float posUncZ;
+        float accelMeasuredX;
+        float accelMeasuredY;
+        float accelMeasuredZ;
+        float velMeasuredX;
+        float velMeasuredY;
+        float velMeasuredZ;
+        float posMeasuredX;
+        float posMeasuredY;
+        float posMeasuredZ;
         uint32_t vehicle_ms;
         uint32_t down_count;
     };
     
-    // Sensor data structure
-    struct SensorData {
-        uint8_t failmask;
-        bool sd_good;
-        float gyro_yaw, gyro_pitch, gyro_roll;
-        float accel_x, accel_y, accel_z;
-        float baro_altitude;
-        float gyro_bias_yaw, gyro_bias_pitch, gyro_bias_roll;
-        uint32_t vehicle_ms;
-        uint32_t down_count;
-    };
-
     //GPS telemetry
     struct GPSData{
         uint8_t satsInView;
@@ -83,12 +93,6 @@ public:
         float relX;
         float relY;
         float relZ;
-        uint32_t vehicle_ms;
-        uint32_t down_count;
-    };
-
-    //TVC specific lander telemetry
-    struct LanderData{
         float YTarget;
         float ZTarget;
         float ignitionAlt;
@@ -113,30 +117,6 @@ public:
         uint32_t vehicle_ms;
         uint32_t down_count;
     };
-
-    //Kalman filter telemerty
-    struct KalmanData{
-        float accUncX;
-        float accUncY;
-        float accUncZ;
-        float velUncX;
-        float velUncY;
-        float velUncZ;
-        float posUncX;
-        float posUncY;
-        float posUncZ;
-        float accelMeasuredX;
-        float accelMeasuredY;
-        float accelMeasuredZ;
-        float velMeasuredX;
-        float velMeasuredY;
-        float velMeasuredZ;
-        float posMeasuredX;
-        float posMeasuredY;
-        float posMeasuredZ;
-        uint32_t vehicle_ms;
-        uint32_t down_count;
-    };
     
     // Unpack received packet (for ground control commands)
     struct UnpackedPacket {
@@ -150,10 +130,7 @@ public:
     // Public methods
     static size_t packCommandAck(uint8_t command_type, uint8_t command_id, uint8_t error, uint8_t* p, uint32_t vehicle_ms, uint32_t down_count);
     static size_t packStateTelemetry(const StateTelemetry& state, uint8_t* p);
-    static size_t packSensorData(const SensorData& sensors, uint8_t* p);
     static size_t packGPSData(const GPSData& gps, uint8_t* p);
-    static size_t packLanderData(const LanderData& lander, uint8_t* p);
-    static size_t packKalmanData(const KalmanData& kalman, uint8_t* p);
     static UnpackedPacket unpackPacket(const uint8_t* packet, size_t packet_size);
     static uint8_t parseCommand(const UnpackedPacket& packet);
 

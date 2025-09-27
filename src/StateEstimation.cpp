@@ -779,7 +779,7 @@ void StateEstimation::firePyroWhenReady(){
 
     if (vehicleState == 5 || vehicleState == 6) { // If vehicle is past apogee or in landing burn state
         if(landingIgnitionTime == 0.0f){ //Has not committed to ignition yet, can still abort
-            if(abs(ori.toEuler().yaw) > PI / 8 || abs(ori.toEuler().pitch) > PI / 8 ){ // ABORT if too tilted or pointing backward
+            if(abs(ori.toEuler().yaw) > PI / 8 || abs(ori.toEuler().pitch) > PI / 8){ // ABORT if too tilted or pointing backward
                 abort();
                 return;
             }
@@ -1093,7 +1093,7 @@ void StateEstimation::detectApogee(){
     if (worldPosition[0] < apogeeAltitude - BELOW_APOGEE_THRESHOLD){
         // TODO: Smarter ignition altitude adjustment
         if (vehicleState == 4 || vehicleState == 3){
-            if(abs(ori.toEuler().yaw) > PI / 8 || abs(ori.toEuler().pitch) > PI / 8 ){ // ABORT if too tilted or pointing backward
+            if(abs(ori.toEuler().yaw) > PI / 8 || abs(ori.toEuler().pitch) > PI / 8){ // ABORT if too tilted or pointing backward
                 abort();
                 return;
             }

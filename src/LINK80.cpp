@@ -28,7 +28,7 @@ size_t LINK80::packCommandAck(uint8_t command_type, uint8_t command_id, uint8_t 
 size_t LINK80::packStateTelemetry(const StateTelemetry& state, uint8_t* p) {
     size_t offset = 0;
     
-    payloadBuffer[offset++] = 0; // Reserved addressing
+    payloadBuffer[offset++] = 0; // Reserved addressing5
     payloadBuffer[offset++] = STATE_TELEMETRY;
     payloadBuffer[offset++] = state.vehicle_state;
     
@@ -47,42 +47,42 @@ size_t LINK80::packStateTelemetry(const StateTelemetry& state, uint8_t* p) {
     packFloat(payloadBuffer, offset, state.pos_y); offset += 4;
     packFloat(payloadBuffer, offset, state.pos_z); offset += 4;
     packFloat(payloadBuffer, offset, state.time_since_launch); offset += 4;
+    payloadBuffer[offset++] = state.failmask;
+    payloadBuffer[offset++] = state.sd_good ? 1 : 0;
+    packFloat(payloadBuffer, offset, state.gyro_yaw); offset += 4;
+    packFloat(payloadBuffer, offset, state.gyro_pitch); offset += 4;
+    packFloat(payloadBuffer, offset, state.gyro_roll); offset += 4;
+    packFloat(payloadBuffer, offset, state.accelerometer_x); offset += 4;
+    packFloat(payloadBuffer, offset, state.accelerometer_y); offset += 4;
+    packFloat(payloadBuffer, offset, state.accelerometer_z); offset += 4;
+    packFloat(payloadBuffer, offset, state.baro_altitude); offset += 4;
+    packFloat(payloadBuffer, offset, state.gyro_bias_yaw); offset += 4;
+    packFloat(payloadBuffer, offset, state.gyro_bias_pitch); offset += 4;
+    packFloat(payloadBuffer, offset, state.gyro_bias_roll); offset += 4;
+    packFloat(payloadBuffer, offset, state.accUncX); offset += 4;
+    packFloat(payloadBuffer, offset, state.accUncY); offset += 4;
+    packFloat(payloadBuffer, offset, state.accUncZ); offset += 4;
+    packFloat(payloadBuffer, offset, state.velUncX); offset += 4;
+    packFloat(payloadBuffer, offset, state.velUncY); offset += 4;
+    packFloat(payloadBuffer, offset, state.velUncZ); offset += 4;
+    packFloat(payloadBuffer, offset, state.posUncX); offset += 4;
+    packFloat(payloadBuffer, offset, state.posUncY); offset += 4;
+    packFloat(payloadBuffer, offset, state.posUncZ); offset += 4;
+    packFloat(payloadBuffer, offset, state.accelMeasuredX); offset += 4;
+    packFloat(payloadBuffer, offset, state.accelMeasuredY); offset += 4;
+    packFloat(payloadBuffer, offset, state.accelMeasuredZ); offset += 4;
+    packFloat(payloadBuffer, offset, state.velMeasuredX); offset += 4;
+    packFloat(payloadBuffer, offset, state.velMeasuredY); offset += 4;
+    packFloat(payloadBuffer, offset, state.velMeasuredZ); offset += 4;
+    packFloat(payloadBuffer, offset, state.posMeasuredX); offset += 4;
+    packFloat(payloadBuffer, offset, state.posMeasuredY); offset += 4;
+    packFloat(payloadBuffer, offset, state.posMeasuredZ); offset += 4;
     packUINT32(payloadBuffer, offset, state.vehicle_ms); offset += 4;
-    packUINT32(payloadBuffer, offset, state.down_count); 
-    
-    size_t payload_size = 67;
+    packUINT32(payloadBuffer, offset, state.down_count);
+
+    size_t payload_size = 181;
     size_t a = packPacket(payloadBuffer, payload_size, packetBuffer, MAX_PACKET_SIZE);
 
-    memcpy(p, packetBuffer, a);
-
-    return a;
-}
-
-// Pack sensor data
-size_t LINK80::packSensorData(const SensorData& sensors, uint8_t* p) {
-    size_t offset = 0;
-    
-    payloadBuffer[offset++] = 0; // Reserved addressing
-    payloadBuffer[offset++] = SENSORS;
-    payloadBuffer[offset++] = sensors.failmask;
-    payloadBuffer[offset++] = sensors.sd_good ? 1 : 0;
-    
-    packFloat(payloadBuffer, offset, sensors.gyro_yaw); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.gyro_pitch); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.gyro_roll); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.accel_x); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.accel_y); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.accel_z); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.baro_altitude); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.gyro_bias_yaw); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.gyro_bias_pitch); offset += 4;
-    packFloat(payloadBuffer, offset, sensors.gyro_bias_roll); offset += 4;
-    packUINT32(payloadBuffer, offset, sensors.vehicle_ms); offset += 4;
-    packUINT32(payloadBuffer, offset, sensors.down_count); 
-    
-    size_t payload_size = 52;
-    size_t a = packPacket(payloadBuffer, payload_size, packetBuffer, MAX_PACKET_SIZE);
-    
     memcpy(p, packetBuffer, a);
 
     return a;
@@ -114,81 +114,31 @@ size_t LINK80::packGPSData(const GPSData& gps, uint8_t* p) {
     packFloat(payloadBuffer, offset, gps.relX); offset += 4;
     packFloat(payloadBuffer, offset, gps.relY); offset += 4;
     packFloat(payloadBuffer, offset, gps.relZ); offset += 4;
+    packFloat(payloadBuffer, offset, gps.YTarget); offset += 4;
+    packFloat(payloadBuffer, offset, gps.ZTarget); offset += 4;
+    packFloat(payloadBuffer, offset, gps.ignitionAlt); offset += 4;
+    packFloat(payloadBuffer, offset, gps.apogeeAlt); offset += 4;
+    packFloat(payloadBuffer, offset, gps.yawSetpoint); offset += 4;
+    packFloat(payloadBuffer, offset, gps.pitchSetpoint); offset += 4;
+    packFloat(payloadBuffer, offset, gps.yawCommand); offset += 4;
+    packFloat(payloadBuffer, offset, gps.pitchCommand); offset += 4;
+    packFloat(payloadBuffer, offset, gps.rollMixedYaw); offset += 4;
+    packFloat(payloadBuffer, offset, gps.rollMixedPitch); offset += 4;
+    packFloat(payloadBuffer, offset, gps.yawMisalign); offset += 4;
+    packFloat(payloadBuffer, offset, gps.pitchMisalign); offset += 4;
+    packFloat(payloadBuffer, offset, gps.rollCommand); offset += 4;
+    packFloat(payloadBuffer, offset, gps.YProjected); offset += 4;
+    packFloat(payloadBuffer, offset, gps.ZProjected); offset += 4;
+    packFloat(payloadBuffer, offset, gps.VBAT); offset += 4;
+    packFloat(payloadBuffer, offset, gps.thrust); offset += 4;
+    packFloat(payloadBuffer, offset, gps.mass); offset += 4;
+    packFloat(payloadBuffer, offset, gps.MMOI); offset += 4;
+    packFloat(payloadBuffer, offset, gps.momentArm); offset += 4;
+    payloadBuffer[offset++] = gps.pyroStatus;
     packUINT32(payloadBuffer, offset, gps.vehicle_ms); offset += 4;
     packUINT32(payloadBuffer, offset, gps.down_count);
 
-    size_t payload_size = 81;
-    size_t a = packPacket(payloadBuffer, payload_size, packetBuffer, MAX_PACKET_SIZE);
-    memcpy(p, packetBuffer, a);
-    return a;
-}
-
-// Pack Lander (TVC) data
-size_t LINK80::packLanderData(const LanderData& lander, uint8_t* p) {
-    size_t offset = 0;
-
-    payloadBuffer[offset++] = 0; // Reserved addressing
-    payloadBuffer[offset++] = LANDER;
-
-    packFloat(payloadBuffer, offset, lander.YTarget); offset += 4;
-    packFloat(payloadBuffer, offset, lander.ZTarget); offset += 4;
-    packFloat(payloadBuffer, offset, lander.ignitionAlt); offset += 4;
-    packFloat(payloadBuffer, offset, lander.apogeeAlt); offset += 4;
-    packFloat(payloadBuffer, offset, lander.yawSetpoint); offset += 4;
-    packFloat(payloadBuffer, offset, lander.pitchSetpoint); offset += 4;
-    packFloat(payloadBuffer, offset, lander.yawCommand); offset += 4;
-    packFloat(payloadBuffer, offset, lander.pitchCommand); offset += 4;
-    packFloat(payloadBuffer, offset, lander.rollMixedYaw); offset += 4;
-    packFloat(payloadBuffer, offset, lander.rollMixedPitch); offset += 4;
-    packFloat(payloadBuffer, offset, lander.yawMisalign); offset += 4;
-    packFloat(payloadBuffer, offset, lander.pitchMisalign); offset += 4;
-    packFloat(payloadBuffer, offset, lander.rollCommand); offset += 4;
-    packFloat(payloadBuffer, offset, lander.YProjected); offset += 4;
-    packFloat(payloadBuffer, offset, lander.ZProjected); offset += 4;
-    packFloat(payloadBuffer, offset, lander.VBAT); offset += 4;
-    packFloat(payloadBuffer, offset, lander.thrust); offset += 4;
-    packFloat(payloadBuffer, offset, lander.mass); offset += 4;
-    packFloat(payloadBuffer, offset, lander.MMOI); offset += 4;
-    packFloat(payloadBuffer, offset, lander.momentArm); offset += 4;
-    payloadBuffer[offset++] = lander.pyroStatus;
-    packUINT32(payloadBuffer, offset, lander.vehicle_ms); offset += 4;
-    packUINT32(payloadBuffer, offset, lander.down_count);
-
-    size_t payload_size = 91;
-    size_t a = packPacket(payloadBuffer, payload_size, packetBuffer, MAX_PACKET_SIZE);
-    memcpy(p, packetBuffer, a);
-    return a;
-}
-
-// Pack Kalman data
-size_t LINK80::packKalmanData(const KalmanData& kalman, uint8_t* p) {
-    size_t offset = 0;
-
-    payloadBuffer[offset++] = 0; // Reserved addressing
-    payloadBuffer[offset++] = KALMAN; 
-
-    packFloat(payloadBuffer, offset, kalman.accUncX); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.accUncY); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.accUncZ); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.velUncX); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.velUncY); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.velUncZ); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.posUncX); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.posUncY); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.posUncZ); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.accelMeasuredX); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.accelMeasuredY); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.accelMeasuredZ); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.velMeasuredX); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.velMeasuredY); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.velMeasuredZ); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.posMeasuredX); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.posMeasuredY); offset += 4;
-    packFloat(payloadBuffer, offset, kalman.posMeasuredZ); offset += 4;
-    packUINT32(payloadBuffer, offset, kalman.vehicle_ms); offset += 4;
-    packUINT32(payloadBuffer, offset, kalman.down_count);
-
-    size_t payload_size = 82;
+    size_t payload_size = 162;
     size_t a = packPacket(payloadBuffer, payload_size, packetBuffer, MAX_PACKET_SIZE);
     memcpy(p, packetBuffer, a);
     return a;

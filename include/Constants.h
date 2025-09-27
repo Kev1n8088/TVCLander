@@ -56,8 +56,8 @@
 #define WORLD_GRAVITY_Z -0.0f
 
 #define PRELAUNCH_UPDATE_INTERVAL 3000 // Update interval in milliseconds before launch
-#define PRELAUNCH_AVERAGE_COUNT 100.0f // Number of samples to average IMU before launch
-#define PRELAUNCH_AVERAGE_INTERVAL 10 // Interval in milliseconds between samples before launch
+#define PRELAUNCH_AVERAGE_COUNT 80 // Number of samples to average IMU before launch
+#define PRELAUNCH_AVERAGE_INTERVAL 5 // Interval in milliseconds between samples before launch
 
 #define STATE_ESTIMATION_INTERVAL_US 500 // Interval in microseconds for state estimation updates
 
@@ -68,7 +68,7 @@
 #define DEBUG_MODE 0 // Set to 1 to enable debug mode, 0 to disable
 
 #define DATALOG_INTERVAL 20 // Interval in milliseconds for data logging
-#define TELEMETRY_INTERVAL 40 // Interval in milliseconds for telemetry updates
+#define TELEMETRY_INTERVAL 80 // Interval in milliseconds for telemetry updates
 
 #define MAX_BYTES_PER_LOG 500 // max packet size
 #define MAX_DATA_LOGS 10000 // Maximum number of data logs to store
@@ -109,7 +109,7 @@
 
 #define DELAY_BUFFER_SIZE 12
 
-#define MAX_GIMBAL_RATE_RAD_S 2.0f // Maximum gimbal rate in rad/s
+#define MAX_GIMBAL_RATE_RAD_S 2.1f // Maximum gimbal rate in rad/s
 
 #endif // CONSTANTS_H
 

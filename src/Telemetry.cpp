@@ -131,16 +131,13 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
     downCountRadio = (downCountRadio + 1) % UINT16_MAX; // Increment downCount and wrap around at 2^32
 
 
-    currentPacketType = (currentPacketType + 1) % 7;
+    currentPacketType = (currentPacketType + 1) % 2;
     //currentPacketType = 2; //testing
 
     size_t packet_size = 0;
 
     LINK80::StateTelemetry stateTelem;
-    LINK80::SensorData sensors;
-    LINK80::LanderData lander;
     LINK80::GPSData gps;
-    LINK80::KalmanData kalman;
     GPSInfo& gpsInfo = state.getGPSInfo();
 
     float vbat = (((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER;
@@ -149,7 +146,6 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
     uint8_t pyroMask = (state.getChuteCont() ? (1 << 0) : 0) | (state.getPyroCont() ? (1 << 1) : 0); // Create a bitmask for pyro status. First bit is chute, second bit is landing motor
     switch (currentPacketType){
         case 0:
-        case 4: //state telem packet
             stateTelem = {
                 .vehicle_state = (int8_t)state.getVehicleState(),
                 .quat_w = state.getOrientationQuaternion().a,
@@ -166,31 +162,62 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .pos_y = state.getWorldPosition()[1],
                 .pos_z = state.getWorldPosition()[2],
                 .time_since_launch = state.getTimeSinceLaunch(),
-                .vehicle_ms = millis(),
-                .down_count = downCountRadio
-            };
-            break;
-        case 1: // sensor telem packet
-            sensors = {
                 .failmask = state.getSensorStatus(),
                 .sd_good = SDGood,
                 .gyro_yaw = state.getGyroRemovedBias()[0],
                 .gyro_pitch = state.getGyroRemovedBias()[1],
                 .gyro_roll = state.getGyroRemovedBias()[2],
-                .accel_x = state.getAccelCalibrated()[0],
-                .accel_y = state.getAccelCalibrated()[1],
-                .accel_z = state.getAccelCalibrated()[2],
+                .accelerometer_x = state.getAccelCalibrated()[0],
+                .accelerometer_y = state.getAccelCalibrated()[1],
+                .accelerometer_z = state.getAccelCalibrated()[2],
                 .baro_altitude = state.getGPSHandler().getUpdateInterval(), // zero for now since barometer is not used
                 .gyro_bias_yaw = state.getGyroBias()[0],
                 .gyro_bias_pitch = state.getGyroBias()[1],
                 .gyro_bias_roll = state.getGyroBias()[2],
+                .accUncX = state.getAccelUncertainty()[0],
+                .accUncY = state.getAccelUncertainty()[1],
+                .accUncZ = state.getAccelUncertainty()[2],
+                .velUncX = state.getVelocityUncertainty()[0],
+                .velUncY = state.getVelocityUncertainty()[1],
+                .velUncZ = state.getVelocityUncertainty()[2],
+                .posUncX = state.getPositionUncertainty()[0],
+                .posUncY = state.getPositionUncertainty()[1],
+                .posUncZ = state.getPositionUncertainty()[2],
+                .accelMeasuredX = state.getMeasuredRotatedAccel()[0],
+                .accelMeasuredY = state.getMeasuredRotatedAccel()[1],
+                .accelMeasuredZ = state.getMeasuredRotatedAccel()[2],
+                .velMeasuredX = state.getAdjustedGPSVelocity()[0],
+                .velMeasuredY = state.getAdjustedGPSVelocity()[1],
+                .velMeasuredZ = state.getAdjustedGPSVelocity()[2],
+                .posMeasuredX = state.getAdjustedGPSPosition()[0],
+                .posMeasuredY = state.getAdjustedGPSPosition()[1],
+                .posMeasuredZ = state.getAdjustedGPSPosition()[2],
                 .vehicle_ms = millis(),
                 .down_count = downCountRadio
             };
             break;
-        case 2: 
-        case 6: // lander telem packet
-            lander = {
+        case 1:
+            gps = {
+                .satsInView = (uint8_t)gpsInfo.satsInView,
+                .satsUsed = (uint8_t)gpsInfo.satsUsed,
+                .fixType = (uint8_t)gpsInfo.fixType,
+                .latitude = (float)gpsInfo.pos.latitude,
+                .longitude = (float)gpsInfo.pos.longitude,
+                .altitude = (float)gpsInfo.pos.altitude,
+                .accuracy2D = gpsInfo.error2D,
+                .accuracy3D = gpsInfo.error3D,
+                .PDOP = gpsInfo.pdop,
+                .gps_ms = gpsInfo.timeOfWeek,
+                .lastRTCM = gpsInfo.rtcmAge,
+                .latHome = (float)gpsInfo.home.latitude,
+                .lonHome = (float)gpsInfo.home.longitude,
+                .altHome = (float)gpsInfo.home.altitude,
+                .downVel = (float)gpsInfo.pos.velocityDown,
+                .eastVel = (float)gpsInfo.pos.velocityEast,
+                .northVel = (float)gpsInfo.pos.velocityNorth,
+                .relX = (float)gpsInfo.xyz.x,
+                .relY = (float)gpsInfo.xyz.y,
+                .relZ = (float)gpsInfo.xyz.z,
                 .YTarget = Y_TARGET,
                 .ZTarget = Z_TARGET,
                 .ignitionAlt = state.getIgnitionAltitude(),
@@ -216,71 +243,14 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .down_count = downCountRadio
             };
             break;
-        case 3:
-            gps = {
-                .satsInView = (uint8_t)gpsInfo.satsInView,
-                .satsUsed = (uint8_t)gpsInfo.satsUsed,
-                .fixType = (uint8_t)gpsInfo.fixType,
-                .latitude = (float)gpsInfo.pos.latitude,
-                .longitude = (float)gpsInfo.pos.longitude,
-                .altitude = (float)gpsInfo.pos.altitude,
-                .accuracy2D = gpsInfo.error2D,
-                .accuracy3D = gpsInfo.error3D,
-                .PDOP = gpsInfo.pdop,
-                .gps_ms = gpsInfo.timeOfWeek,
-                .lastRTCM = gpsInfo.rtcmAge,
-                .latHome = (float)gpsInfo.home.latitude,
-                .lonHome = (float)gpsInfo.home.longitude,
-                .altHome = (float)gpsInfo.home.altitude,
-                .downVel = (float)gpsInfo.pos.velocityDown,
-                .eastVel = (float)gpsInfo.pos.velocityEast,
-                .northVel = (float)gpsInfo.pos.velocityNorth,
-                .relX = (float)gpsInfo.xyz.x,
-                .relY = (float)gpsInfo.xyz.y,
-                .relZ = (float)gpsInfo.xyz.z,
-                .vehicle_ms = millis(),
-                .down_count = downCountRadio
-            };
-            break;
-        case 5: // Kalman telem packet
-            kalman = {
-                .accUncX = state.getAccelUncertainty()[0],
-                .accUncY = state.getAccelUncertainty()[1],
-                .accUncZ = state.getAccelUncertainty()[2],
-                .velUncX = state.getVelocityUncertainty()[0],
-                .velUncY = state.getVelocityUncertainty()[1],
-                .velUncZ = state.getVelocityUncertainty()[2],
-                .posUncX = state.getPositionUncertainty()[0],
-                .posUncY = state.getPositionUncertainty()[1],
-                .posUncZ = state.getPositionUncertainty()[2],
-                .accelMeasuredX = state.getMeasuredRotatedAccel()[0],
-                .accelMeasuredY = state.getMeasuredRotatedAccel()[1],
-                .accelMeasuredZ = state.getMeasuredRotatedAccel()[2],
-                .velMeasuredX = state.getAdjustedGPSVelocity()[0],
-                .velMeasuredY = state.getAdjustedGPSVelocity()[1],
-                .velMeasuredZ = state.getAdjustedGPSVelocity()[2],
-                .posMeasuredX = state.getAdjustedGPSPosition()[0],
-                .posMeasuredY = state.getAdjustedGPSPosition()[1],
-                .posMeasuredZ = state.getAdjustedGPSPosition()[2],
-                .vehicle_ms = millis(),
-                .down_count = downCountRadio
-            };  
-            break;
     };
 
     // Use static buffer for packing
-    if(currentPacketType == 0 || currentPacketType == 4){
+    if(currentPacketType == 0){
         packet_size = LINK80::packStateTelemetry(stateTelem, telemetryPacketBuffer);
     }else if(currentPacketType == 1){
-        packet_size = LINK80::packSensorData(sensors, telemetryPacketBuffer);
-    }else if(currentPacketType == 2 || currentPacketType == 6){
-        packet_size = LINK80::packLanderData(lander, telemetryPacketBuffer);
-    }else if(currentPacketType == 3){
         packet_size = LINK80::packGPSData(gps, telemetryPacketBuffer);
-    }else if(currentPacketType == 5){
-        packet_size = LINK80::packKalmanData(kalman, telemetryPacketBuffer);
     }
-
     if (packet_size == 0) {
         // Packing failed
         DEBUG_SERIAL.println("Failed to pack telemetry data");
@@ -481,11 +451,9 @@ void Telemetry::dataLog(StateEstimation& state) {
     uint8_t tempBuffer[LINK80::MAX_PACKET_SIZE]; // Temporary buffer for packing
 
     LINK80::StateTelemetry stateTelem;
-    LINK80::SensorData sensors;
-    LINK80::LanderData lander;
     LINK80::GPSData gps;
-    LINK80::KalmanData kalman;
     GPSInfo& gpsInfo = state.getGPSInfo();
+    uint8_t pyroMask = (state.getChuteCont() ? (1 << 0) : 0) | (state.getPyroCont() ? (1 << 1) : 0); // Create a bitmask for pyro status. First bit is chute, second bit is landing motor
 
     float vbat = (((float)analogRead(VBAT_SENSE_PIN)) / 1023.0f) * VBAT_DIVIDER;
 
@@ -506,105 +474,18 @@ void Telemetry::dataLog(StateEstimation& state) {
         .pos_y = state.getWorldPosition()[1],
         .pos_z = state.getWorldPosition()[2],
         .time_since_launch = state.getTimeSinceLaunch(),
-        .vehicle_ms = millis(),
-        .down_count = downCount
-    };
-    packet_size = LINK80::packStateTelemetry(stateTelem, tempBuffer);
-    if (packet_size > 0 && telemetryBufferUsed + packet_size < sizeof(telemetryBuffer)) {
-        memcpy(telemetryBuffer + telemetryBufferUsed, tempBuffer, packet_size);
-        telemetryBufferUsed += packet_size;
-    }
-
-    // 2. Sensor data packet
-    sensors = {
         .failmask = state.getSensorStatus(),
         .sd_good = SDGood,
         .gyro_yaw = state.getGyroRemovedBias()[0],
         .gyro_pitch = state.getGyroRemovedBias()[1],
         .gyro_roll = state.getGyroRemovedBias()[2],
-        .accel_x = state.getAccelCalibrated()[0],
-        .accel_y = state.getAccelCalibrated()[1],
-        .accel_z = state.getAccelCalibrated()[2],
-        .baro_altitude = state.getGPSHandler().getUpdateInterval(),
+        .accelerometer_x = state.getAccelCalibrated()[0],
+        .accelerometer_y = state.getAccelCalibrated()[1],
+        .accelerometer_z = state.getAccelCalibrated()[2],
+        .baro_altitude = state.getGPSHandler().getUpdateInterval(), // zero for now since barometer is not used
         .gyro_bias_yaw = state.getGyroBias()[0],
         .gyro_bias_pitch = state.getGyroBias()[1],
         .gyro_bias_roll = state.getGyroBias()[2],
-        .vehicle_ms = millis(),
-        .down_count = downCount
-    };
-    packet_size = LINK80::packSensorData(sensors, tempBuffer);
-    if (packet_size > 0 && telemetryBufferUsed + packet_size < sizeof(telemetryBuffer)) {
-        memcpy(telemetryBuffer + telemetryBufferUsed, tempBuffer, packet_size);
-        telemetryBufferUsed += packet_size;
-    }
-
-    uint8_t pyroMask = (state.getChuteCont() ? (1 << 0) : 0) | (state.getPyroCont() ? (1 << 1) : 0); // Create a bitmask for pyro status. First bit is chute, second bit is landing motor
-
-    // 3. Lander data packet
-    lander = {
-        .YTarget = Y_TARGET,
-        .ZTarget = Z_TARGET,
-        .ignitionAlt = state.getIgnitionAltitude(),
-        .apogeeAlt = state.getApogeeAltitude(),
-        .yawSetpoint = state.getAttitudeSetpoint()[0],
-        .pitchSetpoint = state.getAttitudeSetpoint()[1],
-        .yawCommand = state.getAngularAccelCommand()[0],
-        .pitchCommand = state.getAngularAccelCommand()[1],
-        .rollMixedYaw = state.getGimbalAngle()[0],
-        .rollMixedPitch = state.getGimbalAngle()[1],
-        .yawMisalign = state.getGimbalMisalign()[0],
-        .pitchMisalign = state.getGimbalMisalign()[1],
-        .rollCommand = state.getWheelSpeed(),
-        .YProjected = state.getPositionSetpoints()[0],
-        .ZProjected = state.getPositionSetpoints()[1],
-        .VBAT = vbat,
-        .thrust = state.getThrust(),
-        .mass = state.getMass(),
-        .MMOI = state.getPitchYawMMOI(),
-        .momentArm = state.getMomentArm(),
-        .pyroStatus = pyroMask,
-        .vehicle_ms = millis(),
-        .down_count = downCount
-    };
-    packet_size = LINK80::packLanderData(lander, tempBuffer);
-    if (packet_size > 0 && telemetryBufferUsed + packet_size < sizeof(telemetryBuffer)) {
-        memcpy(telemetryBuffer + telemetryBufferUsed, tempBuffer, packet_size);
-        telemetryBufferUsed += packet_size;
-    }
-
-    // 4. GPS data packet
-    gps = {
-        .satsInView = (uint8_t)gpsInfo.satsInView,
-        .satsUsed = (uint8_t)gpsInfo.satsUsed,
-        .fixType = (uint8_t)gpsInfo.fixType,
-        .latitude = (float)gpsInfo.pos.latitude,
-        .longitude = (float)gpsInfo.pos.longitude,
-        .altitude = (float)gpsInfo.pos.altitude,
-        .accuracy2D = gpsInfo.error2D,
-        .accuracy3D = gpsInfo.error3D,
-        .PDOP = gpsInfo.pdop,
-        .gps_ms = gpsInfo.timeOfWeek,
-        .lastRTCM = gpsInfo.rtcmAge,
-        .latHome = (float)gpsInfo.home.latitude,
-        .lonHome = (float)gpsInfo.home.longitude,
-        .altHome = (float)gpsInfo.home.altitude,
-        .downVel = (float)gpsInfo.pos.velocityDown,
-        .eastVel = (float)gpsInfo.pos.velocityEast,
-        .northVel = (float)gpsInfo.pos.velocityNorth,
-        .relX = (float)gpsInfo.xyz.x,
-        .relY = (float)gpsInfo.xyz.y,
-        .relZ = (float)gpsInfo.xyz.z,
-        .vehicle_ms = millis(),
-        .down_count = downCount
-    };
-    packet_size = LINK80::packGPSData(gps, tempBuffer);
-    if (packet_size > 0 && telemetryBufferUsed + packet_size < sizeof(telemetryBuffer)) {
-        memcpy(telemetryBuffer + telemetryBufferUsed, tempBuffer, packet_size);
-        telemetryBufferUsed += packet_size;
-    }
-
-    // 5. Kalman data packet
-    kalman = {
         .accUncX = state.getAccelUncertainty()[0],
         .accUncY = state.getAccelUncertainty()[1],
         .accUncZ = state.getAccelUncertainty()[2],
@@ -626,11 +507,64 @@ void Telemetry::dataLog(StateEstimation& state) {
         .vehicle_ms = millis(),
         .down_count = downCount
     };
-    packet_size = LINK80::packKalmanData(kalman, tempBuffer);
+    packet_size = LINK80::packStateTelemetry(stateTelem, tempBuffer);
     if (packet_size > 0 && telemetryBufferUsed + packet_size < sizeof(telemetryBuffer)) {
         memcpy(telemetryBuffer + telemetryBufferUsed, tempBuffer, packet_size);
         telemetryBufferUsed += packet_size;
     }
+
+    // GPS data packet
+    gps = {
+        .satsInView = (uint8_t)gpsInfo.satsInView,
+        .satsUsed = (uint8_t)gpsInfo.satsUsed,
+        .fixType = (uint8_t)gpsInfo.fixType,
+        .latitude = (float)gpsInfo.pos.latitude,
+        .longitude = (float)gpsInfo.pos.longitude,
+        .altitude = (float)gpsInfo.pos.altitude,
+        .accuracy2D = gpsInfo.error2D,
+        .accuracy3D = gpsInfo.error3D,
+        .PDOP = gpsInfo.pdop,
+        .gps_ms = gpsInfo.timeOfWeek,
+        .lastRTCM = gpsInfo.rtcmAge,
+        .latHome = (float)gpsInfo.home.latitude,
+        .lonHome = (float)gpsInfo.home.longitude,
+        .altHome = (float)gpsInfo.home.altitude,
+        .downVel = (float)gpsInfo.pos.velocityDown,
+        .eastVel = (float)gpsInfo.pos.velocityEast,
+        .northVel = (float)gpsInfo.pos.velocityNorth,
+        .relX = (float)gpsInfo.xyz.x,
+        .relY = (float)gpsInfo.xyz.y,
+        .relZ = (float)gpsInfo.xyz.z,
+        .YTarget = Y_TARGET,
+        .ZTarget = Z_TARGET,
+        .ignitionAlt = state.getIgnitionAltitude(),
+        .apogeeAlt = state.getApogeeAltitude(),
+        .yawSetpoint = state.getAttitudeSetpoint()[0],
+        .pitchSetpoint = state.getAttitudeSetpoint()[1],
+        .yawCommand = state.getAngularAccelCommand()[0],
+        .pitchCommand = state.getAngularAccelCommand()[1],
+        .rollMixedYaw = state.getGimbalAngle()[0],
+        .rollMixedPitch = state.getGimbalAngle()[1],
+        .yawMisalign = state.getGimbalMisalign()[0],
+        .pitchMisalign = state.getGimbalMisalign()[1],
+        .rollCommand = state.getWheelSpeed(),
+        .YProjected = state.getPositionSetpoints()[0],
+        .ZProjected = state.getPositionSetpoints()[1],
+        .VBAT = vbat, 
+        .thrust = state.getThrust(),
+        .mass = state.getMass(),
+        .MMOI = state.getPitchYawMMOI(),
+        .momentArm = state.getMomentArm(),
+        .pyroStatus = pyroMask,
+        .vehicle_ms = millis(),
+        .down_count = downCount
+    };
+    packet_size = LINK80::packGPSData(gps, tempBuffer);
+    if (packet_size > 0 && telemetryBufferUsed + packet_size < sizeof(telemetryBuffer)) {
+        memcpy(telemetryBuffer + telemetryBufferUsed, tempBuffer, packet_size);
+        telemetryBufferUsed += packet_size;
+    }
+
 
     logFile.write(telemetryBuffer, telemetryBufferUsed);
     if(downCount % 10 == 0){ //flush every 200ms if logging at 20ms
