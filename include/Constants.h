@@ -79,7 +79,7 @@
 #define Z_TARGET 0.0f // Target X position in meters for landing
 
 #define GIMBAL_LIMIT_RAD 10.0 * DEG_TO_RAD // 10 degrees in radians
-#define MAX_ATTITIDE_SETPOINT_RAD 0.5
+#define MAX_ATTITIDE_SETPOINT_RAD 0.05
 
 #define PYRO_LOCKOUT_ALT 3.0
 
