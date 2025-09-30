@@ -79,13 +79,14 @@
 #define Z_TARGET 0.0f // Target X position in meters for landing
 
 #define GIMBAL_LIMIT_RAD 10.0 * DEG_TO_RAD // 10 degrees in radians
-#define MAX_ATTITIDE_SETPOINT_RAD 0.05
+#define MAX_ATTITIDE_SETPOINT_RAD 0.1
 
 #define PYRO_LOCKOUT_ALT 3.0
 
 #define LAUNCH_ACCEL_THRESHOLD 12.5 // m/s^2
-#define MISALIGN_CHARACTERIZATION_TIME 0.3 //s, T+ at which we stop characterizing gimbal misalign
-#define GIMBAL_STABILIZATION_TIME 2.5 //s, T+ at which we switch to stabilize mode
+
+#define MISALIGN_CHARACTERIZATION_TIME 0.25 //s, T+ at which we stop characterizing gimbal misalign
+#define GIMBAL_STABILIZATION_TIME 3.8 //s, T+ at which we switch to stabilize mode
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
 
@@ -103,8 +104,8 @@
 
 
 #define T_ACCEL 3.5
-#define T_DECEL 2.0
-#define T_END 7.5
+#define T_DECEL 4.0
+#define T_END 8.5
 #define T_COAST (T_END - T_ACCEL - T_DECEL) // Time spent coasting after acceleration and deceleration phases
 
 #define DELAY_BUFFER_SIZE 12

@@ -27,10 +27,10 @@ StateEstimation::StateEstimation()
       bmp(),
       lis2mdl(12345), 
       gps(),
-      PitchPID(12,0,6,1000,0, 100.0, true),
-        YawPID(12,0,6,1000,0, 100.0, true),
-        YPID(0.2,0.0001,0.25,1000,0.01),
-        ZPID(0.2,0.0001,0.25,1000,0.01),
+      PitchPID(18,0,6,1000,0, 100.0, true),
+        YawPID(18,0,6,1000,0, 100.0, true),
+        YPID(0.1,0.00005,0.1,1000,0.005),
+        ZPID(0.1,0.00005,0.1,1000,0.005),
         XPos(),
         YPos(),
         ZPos()
@@ -196,12 +196,12 @@ float StateEstimation::getMass(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(1.176, 1.236 - 0.01806 * (timeSinceLaunch + 0.26)); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
+        return max(1.174, 1.234 - 0.01806 * (timeSinceLaunch + 0.26)); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 1.176; // If landing ignition time not set, landing burn has not yet started, return 1.188kg
+            return 1.174; // If landing ignition time not set, landing burn has not yet started, return 1.188kg
         }
-        return max(1.063, 1.123 - 0.01806 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return max(1.061, 1.121 - 0.01806 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -213,12 +213,12 @@ float StateEstimation::getMomentArm(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return min(0.1538, 0.1403 + 0.003867 * (timeSinceLaunch + 0.26)); 
+        return min(0.151906, 0.138444 + 0.0038463 * (timeSinceLaunch + 0.26)); 
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 0.1538; 
+            return 0.151906; 
         }
-        return min(0.1751, 0.1654 + 0.002764 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return min(0.173, 0.163422 + 0.0027366 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -230,12 +230,12 @@ float StateEstimation::getPitchYawMMOI(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(0.058143, 0.062615 - 0.001278 * (timeSinceLaunch + 0.26));
+        return max(0.05767, 0.06208 - 0.00126 * (timeSinceLaunch + 0.26));
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 0.058143;
+            return 0.05767;
         }
-        return max(0.052816, 0.054712 - 0.0005417 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return max(0.05243, 0.05429 - 0.0005314 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -244,7 +244,7 @@ float StateEstimation::getPitchYawMMOI(){
  */
 float StateEstimation::getThrust(){
 
-    return min(max(8.0f, thrust), 25.0f);
+    return min(max(8.0f, thrust), 35.0f);
 }
 
 /**
@@ -416,9 +416,9 @@ void StateEstimation::estimateState(){
                 digitalWrite(CHUTE_PYRO, LOW);
                 detectApogee();
             }
-            if(vehicleState == 3 && timeSinceLaunch > GIMBAL_STABILIZATION_TIME){ // After gimbal stabilization time, switch to return to vertical state
-                vehicleState = 4;
-            }
+            // if(vehicleState == 3 && timeSinceLaunch > GIMBAL_STABILIZATION_TIME){ // After gimbal stabilization time, switch to return to vertical state
+            //     vehicleState = 4;
+            // }
         case 5: // Past apogee state
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
@@ -779,7 +779,7 @@ void StateEstimation::firePyroWhenReady(){
 
     if (vehicleState == 5 || vehicleState == 6) { // If vehicle is past apogee or in landing burn state
         if(landingIgnitionTime == 0.0f){ //Has not committed to ignition yet, can still abort
-            if(abs(ori.toEuler().yaw) > PI / 8 || abs(ori.toEuler().pitch) > PI / 8){ // ABORT if too tilted or pointing backward
+            if(abs(ori.toEuler().yaw) > PI / 4 || abs(ori.toEuler().pitch) > PI / 4){ // ABORT if too tilted or pointing backward
                 abort();
                 return;
             }
@@ -1093,7 +1093,7 @@ void StateEstimation::detectApogee(){
     if (worldPosition[0] < apogeeAltitude - BELOW_APOGEE_THRESHOLD){
         // TODO: Smarter ignition altitude adjustment
         if (vehicleState == 4 || vehicleState == 3){
-            if(abs(ori.toEuler().yaw) > PI / 8 || abs(ori.toEuler().pitch) > PI / 8){ // ABORT if too tilted or pointing backward
+            if(abs(ori.toEuler().yaw) > PI / 4 || abs(ori.toEuler().pitch) > PI / 4){ // ABORT if too tilted or pointing backward
                 abort();
                 return;
             }
@@ -1110,7 +1110,7 @@ void StateEstimation::detectApogee(){
 }
 
 void StateEstimation::abort(){
-    if(vehicleState > 3 && vehicleState < 7 && accelCalibrated[0] < 11.0){ //Not under thrust, and in flight
+    if(vehicleState > 2 && vehicleState < 7 && accelCalibrated[0] < 11.0){ //Not under thrust, and in flight
         digitalWrite(CHUTE_PYRO, HIGH);
         delay(1000);
         vehicleState = 7;
@@ -1119,6 +1119,9 @@ void StateEstimation::abort(){
 
 // gets gimbal misalign, assumes that it starts at launch time = 0
 void StateEstimation::computeGimbalMisalign(){
+    if(timeSinceLaunch < 0.05f){
+        return; // Do not compute gimbal misalign in first 50 ms after launch - disturbed by launch dynamics
+    }
     if(lastGimbalMisalignMicros == 0) { // If this is the first update, set lastGimbalMisalignMicros to current time
         lastGimbalMisalignMicros = micros();
         return;
@@ -1153,8 +1156,8 @@ void StateEstimation::computeGimbalMisalign(){
         gimbalMisalign[0] = -asin(y);
         gimbalMisalign[1] = -asin(p);
 
-        gimbalMisalign[0] = min(max(gimbalMisalign[0], -GIMBAL_LIMIT_RAD/4), GIMBAL_LIMIT_RAD/4); // Limit gimbal misalignment to +/- GIMBAL_LIMIT_RAD/4
-        gimbalMisalign[1] = min(max(gimbalMisalign[1], -GIMBAL_LIMIT_RAD/4), GIMBAL_LIMIT_RAD/4); // Limit gimbal misalignment to +/- GIMBAL_LIMIT_RAD/4
+        gimbalMisalign[0] = min(max(gimbalMisalign[0], -GIMBAL_LIMIT_RAD/8), GIMBAL_LIMIT_RAD/8); // Limit gimbal misalignment to +/- GIMBAL_LIMIT_RAD/8
+        gimbalMisalign[1] = min(max(gimbalMisalign[1], -GIMBAL_LIMIT_RAD/8), GIMBAL_LIMIT_RAD/8); // Limit gimbal misalignment to +/- GIMBAL_LIMIT_RAD/8
 
     }
     
@@ -1210,13 +1213,13 @@ void StateEstimation::adaptiveGimbalMisalignEstimation(){
             -asin(constrain(angAccelError[1] * modifier, -1.0f, 1.0f))
         };
 
-        float adaptiveGain = 0.0005f;
+        float adaptiveGain = 0.001f;
 
         gimbalMisalign[0] += requiredGimbalCorrection[0] * adaptiveGain;
         gimbalMisalign[1] += requiredGimbalCorrection[1] * adaptiveGain;
 
-        gimbalMisalign[0] = constrain(gimbalMisalign[0], -GIMBAL_LIMIT_RAD/4, GIMBAL_LIMIT_RAD/4);
-        gimbalMisalign[1] = constrain(gimbalMisalign[1], -GIMBAL_LIMIT_RAD/4, GIMBAL_LIMIT_RAD/4);
+        gimbalMisalign[0] = constrain(gimbalMisalign[0], -GIMBAL_LIMIT_RAD/8, GIMBAL_LIMIT_RAD/8);
+        gimbalMisalign[1] = constrain(gimbalMisalign[1], -GIMBAL_LIMIT_RAD/8, GIMBAL_LIMIT_RAD/8);
 
     }
 }
