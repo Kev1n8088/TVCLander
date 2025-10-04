@@ -31,12 +31,6 @@ int GPSHandler::begin() {
 
     busyWait(1);
 
-    if(!gps.setConstellations(true, true, true, true, true, true)){
-        return -3;
-    } // Enable all constellations
-    
-    busyWait(1);
-
     if(!gps.setFixInterval(100)){
         return -4; // Return error code if setting fix interval fails
     }
@@ -48,6 +42,22 @@ int GPSHandler::begin() {
     } // Perform a hot start to get all checks
 
     busyWait(2);
+
+    
+    if(!gps.setConstellations(true, true, true, true, true, true)){
+        return -3;
+    } // Enable all constellations
+    
+    busyWait(1);
+
+    if(!gps.setCNR(30)){ 
+        return -6; // Return error code if setting CNR threshold fails
+    } // Set minimum CNR threshold
+
+    if(!gps.setElevationAngle(15)){ //aggressive filtering
+        return -7; // Return error code if setting elevation angle fails
+    } // Set minimum elevation angle
+
     return 0;
 }
 

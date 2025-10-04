@@ -90,7 +90,7 @@ void StateEstimation::resetVariables(){
 
     expectedGravity = Quaternion(-WORLD_GRAVITY_X, -WORLD_GRAVITY_Y, -WORLD_GRAVITY_Z);
     actualAccel = Quaternion(0, 0, 0,0 ); // Reset actual acceleration vector in body frame to zero
-    GPSLocation = Quaternion(0, 0.36, 0, 0); 
+    GPSLocation = Quaternion(0, 0.35, 0, 0); 
     worldGPSLocation = Quaternion(0, 0, 0, 0);
     GPSVelocityWorld = Quaternion(0, 0, 0, 0);
     GPSVelocityBody = Quaternion(0, 0, 0, 0);
