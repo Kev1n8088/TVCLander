@@ -31,13 +31,12 @@ void MotorController::stop(){
     pwm.setPin(ROLL_PLUS, 4096);
 }
 
-
 /**
- * @brief Sets the speed of the motor.
+ * @brief Sets the speed of the motor using slow decay mode.
  * @param speed Speed value in rad/s
  */
 void MotorController::setSpeed(float speed) {
-    // Set the speed of the motor
+    // Set the speed of the motor using slow decay (brake) mode
     
     speed = min(max(speed, -MAX_WHEEL_SPEED), MAX_WHEEL_SPEED); // Limit speed to max wheel speed
 
@@ -46,7 +45,6 @@ void MotorController::setSpeed(float speed) {
 
     a = min(max(a, -4095), 4095); // Limit PWM value to range -4095 to 4095
 
-    //analogWriteResolution(12);
     if (a > 0) {
         pwm.setPin(ROLL_MINUS, 4096);
         pwm.setPin(ROLL_PLUS, 4095 - (a));
@@ -54,7 +52,6 @@ void MotorController::setSpeed(float speed) {
         pwm.setPin(ROLL_PLUS, 4096);
         pwm.setPin(ROLL_MINUS, 4095 - (-a));
     } else {
-        stop(); // Stop the motor if speed is zero
+        stop(); // Stop the motor if speed is zero (brake mode)
     }
-    //analogWriteResolution(8); // Reset resolution to 8 bits for other uses
 }

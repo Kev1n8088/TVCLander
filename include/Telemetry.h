@@ -8,8 +8,6 @@
 #include "LINK80.h"
 #include <SD.h>
 
-#define RX_BUFFER_SIZE LINK80::MAX_PACKET_SIZE * 10
-
 class Telemetry{
 private:
     uint64_t lastLogMillis;
@@ -47,10 +45,15 @@ private:
     File logFile;
 
 public:
+    float numRTCMDropped;
+
     Telemetry();
     void begin();
     void telemetryLoop(StateEstimation& state);
-    void setLogFileName(const String& name) { logFileName = name; } // Setter for file name
+    void setLogFileName(const char* name) { 
+        strncpy(logFileName, name, sizeof(logFileName) - 1);
+        logFileName[sizeof(logFileName) - 1] = '\0'; // Ensure null termination
+    }
 };
 
 #endif // TELEMETRY_H

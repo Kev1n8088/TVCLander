@@ -1,7 +1,11 @@
 #include "GPSHandler.h"
+#include "Adafruit_NeoPixel.h"
 
-static uint8_t gpsTXBuffer[16 * 1024];
-static uint8_t gpsRXBuffer[16 * 1024];
+DMAMEM static uint8_t gpsTXBuffer[1024];
+DMAMEM static uint8_t gpsRXBuffer[4 * 1024];
+
+
+Adafruit_NeoPixel pixels(NUMPIXELS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 GPSHandler::GPSHandler() {
     lastRTCMMillis = 0; // Initialize last RTCM correction time 
@@ -35,11 +39,18 @@ int GPSHandler::begin() {
         return -4; // Return error code if setting fix interval fails
     }
     
+    // Disable satellite tracking messages to prevent memory accumulation
+    gps.setMessageRate("GSV", 0); // Disable satellite info messages
+    
     busyWait(1);
 
-    if(!gps.hotStart()){
-        return -5; // Return error code if hot start fails
-    } // Perform a hot start to get all checks
+    // if(!gps.hotStart()){
+    //     return -5; // Return error code if hot start fails
+    // } // Perform a hot start to get all checks
+
+    // // Clear any accumulated data from initialization
+    // gps.clearNmeaCount();
+    // gps.clearRtcmCount();
 
     busyWait(2);
 
@@ -62,6 +73,9 @@ int GPSHandler::begin() {
 }
 
 void GPSHandler::gpsLoop(){
+    pixels.fill(pixels.Color(0, 255, 0)); // Fill pixels with green color
+    pixels.show();
+
     if(lastUpdateMillis + GPS_POLLING_INTERVAL > millis()){
         //DEBUG_SERIAL.println("Skipping GPS update");
         return; // Skip if not enough time has passed since last update
@@ -83,22 +97,17 @@ void GPSHandler::gpsLoop(){
         current.velocityEast = gps.getEastVelocity(); // Get current velocity in East direction
         current.velocityDown = gps.getDownVelocity(); // Get current velocity in Down direction
 
-        gpsInfo.fixType = gps.getFixQuality(); // Get GPS fix type=
-        gpsInfo.home = home; // Set home position
-        gpsInfo.pos = current; // Set current position
+    gpsInfo.pdop = gps.getPdop(); // Get PDOP value
+    gpsInfo.timeOfWeek = gps.getTimeOfWeek(); // Get time of week in milliseconds
 
-        gpsInfo.xyz = getDistance(home, current); // Calculate distance from home position
-        gpsInfo.satsInView = gps.getSatellitesInViewCount(); // Get number of satellites in view
-        gpsInfo.satsUsed = gps.getSatellitesUsedCount(); // Get number of satellites used for fix
+    gpsInfo.error2D = gps.get2DError(); // Get 2D error
+    gpsInfo.error3D = gps.get3DError(); // Get 3D error
 
-        gpsInfo.pdop = gps.getPdop(); // Get PDOP value
-        gpsInfo.timeOfWeek = gps.getTimeOfWeek(); // Get time of week in milliseconds
+    gpsInfo.rtcmAge = millis() - lastRTCMMillis; // Calculate age of RTCM correction data
 
-        gpsInfo.error2D = gps.get2DError(); // Get 2D error
-        gpsInfo.error3D = gps.get3DError(); // Get 3D error
 
-        gpsInfo.rtcmAge = millis() - lastRTCMMillis; // Calculate age of RTCM correction data
-    }   
+    pixels.fill(pixels.Color(0, 0, 255)); // Fill pixels with blue color
+    pixels.show();
 
     // DEBUG_SERIAL.print("GPS update took ");
     // DEBUG_SERIAL.print(millis() - start);

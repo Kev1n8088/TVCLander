@@ -100,6 +100,8 @@ void StateEstimation::resetVariables(){
 
     lastStateEstimateMicros = 0; // Last time state estimation was run in microseconds
 
+    gps.resetHome();
+
     
     // init variables
     resetLinearVariables();
@@ -153,6 +155,8 @@ void StateEstimation::resetVariables(){
 
     gimbalAngle[0] = 0.0f; // Yaw angle in rad
     gimbalAngle[1] = 0.0f; // Pitch angle in rad
+
+    lastGpsUpdateMillis = 0;
 
     thrust = 12.5f; // Initial thrust in N
 }
@@ -378,7 +382,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
+                processGPSData();
                 actuateServos(false); // center servos without actuating them
                 //RollMotor.stop(); // Stop roll motor
                 digitalWrite(LAND_PYRO, LOW);
@@ -391,7 +395,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
+                processGPSData();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 computeGimbalMisalign();
                 actuateServos(false); // center servos without actuating them
@@ -408,7 +412,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
+                processGPSData();
                 PIDLoop(); // Call PID loop to compute attitude setpoints 
                 adaptiveGimbalMisalignEstimation();
                 actuateServos();
@@ -424,7 +428,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
+                processGPSData();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 adaptiveGimbalMisalignEstimation();
                 actuateServos();
@@ -436,7 +440,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
+                processGPSData();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 adaptiveGimbalMisalignEstimation();
                 actuateServos();
@@ -470,7 +474,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
+                processGPSData();
                 PIDLoop(); // Call PID loop to compute attitude setpoints
                 actuateServos();
                 //digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
@@ -482,7 +486,7 @@ void StateEstimation::estimateState(){
                 readIMU0(); // Read IMU data only if DRY
                 oriLoop(); // Call orientation loop to update orientation
                 accelLoop(); // Call acceleration loop to update world frame acceleration, velocity, and position
-                GPSLoop();
+                processGPSData();
                 computeGimbalMisalign();
                 actuateServos(true, false); // Actuate but do not include PID outputs
                 digitalWrite(LAND_PYRO, LOW); // Ensure land pyro is not fired
@@ -518,9 +522,20 @@ void StateEstimation::estimateState(){
 /**
  * @brief Reads data from GPS and updates kalman filter states.
  */
-void StateEstimation::GPSLoop(){
-    if (!gps.dataReady()){
-        return; // If GPS data is not ready, return
+void StateEstimation::processGPSData(){
+
+    if (lastGpsUpdateMillis + 100 < millis()){
+        return;
+    }
+
+    lastGpsUpdateMillis = millis();
+
+    if(abs(gps.getGPSInfo().pos.velocityDown) > 50 || abs(gps.getGPSInfo().pos.velocityEast) > 50 || abs(gps.getGPSInfo().pos.velocityNorth) > 50){
+        return; // Ignore GPS data if velocity is too high
+    }
+
+    if(abs(gps.getGPSInfo().xyz.x) > 100 || abs(gps.getGPSInfo().xyz.y) > 100 || abs(gps.getGPSInfo().xyz.z) > 100){
+        return; // Ignore GPS data if position is too far from home
     }
 
     // Update GPS data
@@ -692,6 +707,9 @@ void StateEstimation::actuateServos(bool actuate, bool includePID){
     if (micros() - lastActuatorMicros < ACTUATOR_INTERVAL_US) { // If not enough time has passed since last update, return
         return;
     }
+    
+    lastActuatorMicros = micros();
+    
     if(!actuate) { // If actuate is false, do not actuate servos
         YawServo.write(90);
         PitchServo.write(90); // Center servos
@@ -948,11 +966,15 @@ void StateEstimation::updatePrelaunch(){
     expectedGravity = expectedGravity.normalize();
 
     for(int i = 0; i < PRELAUNCH_AVERAGE_COUNT; i++){
+        waitTime = 0; // Reset timeout counter for each iteration
         while(digitalRead(IMU0_DRY_PIN) == LOW) { // Wait for DRY pin to be HIGH, default behavior DRY pin is active HIGH
             delay(1);
             waitTime++;
             if (waitTime > 1000) { // If wait time exceeds 1 second, break out of loop
                 Serial.println("Timeout waiting for IMU DRY pin to go HIGH");
+                gyroBias[0] = 0.0f; // Reset gyro bias for X axis in rad/s
+                gyroBias[1] = 0.0f; // Reset gyro bias for Y axis in rad/s
+                gyroBias[2] = 0.0f; // Reset gyro bias for Z axis in rad/s
                 return;
             }
         }
@@ -964,6 +986,8 @@ void StateEstimation::updatePrelaunch(){
         accelReading[0] += accelCalibrated[0]; // X acceleration in body frame
         accelReading[1] += accelCalibrated[1]; // Y acceleration in body frame
         accelReading[2] += -accelCalibrated[2]; // Z acceleration in body frame
+
+        gps.gpsLoop();
 
         delay(PRELAUNCH_AVERAGE_INTERVAL); // Wait for the specified interval before next sample
     }
@@ -1033,6 +1057,7 @@ uint8_t StateEstimation::setVehicleState(int state){
                 PitchPID.reset();
                 //RollMotor.stop(); // Stop roll motor
                 vehicleState = 0; // Set vehicle state to disarmed
+                gps.resetHome();
                 break;
             default:
                 vehicleState = state;

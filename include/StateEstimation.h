@@ -16,7 +16,7 @@
 #include "PID.h"
 #include "GPSHandler.h"
 #include "KalmanFilter.h"
-#include <Servo.h>
+#include <PWMServo.h>
 #include "MotorController.h"
 
 class StateEstimation
@@ -111,6 +111,8 @@ private:
     uint64_t dt_loop;
     uint64_t lastIMUReadMicros; // Last time IMU data was read in microseconds
 
+    uint64_t lastGpsUpdateMillis; // Last time GPS data was updated in milliseconds
+
     float apogeeAltitude;
     float landingIgnitionAltitude;
 
@@ -149,7 +151,7 @@ private:
     void PIDLoop();
     void actuateServos(bool actuate = true, bool includePID = true); // Actuate servos based on attitude setpoints
     void actuateWheel();
-    void GPSLoop();
+    void processGPSData();
     void firePyroWhenReady();
 
     void adaptiveGimbalMisalignEstimation();

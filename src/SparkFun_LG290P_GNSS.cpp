@@ -147,12 +147,13 @@ bool LG290P::begin(HardwareSerial &serialPort, Print *parserDebug, Print *parser
 
 bool LG290P::beginAutoBaudDetect(HardwareSerial &serialPort, int rxPin, int txPin, Print *parserDebug /* = nullptr */, Print *parserError /* = &Serial */)
 {
-    // serialPort.setRxBufferSize(4096);
+    //serialPort.setRxBufferSize(4096);
 
     for (int baud: {460800, 921600, 230400, 115200, 9600})
     {
         debugPrintf("Trying baud rate %d...", baud);
-        serialPort.begin(baud, SERIAL_8N1);
+        //serialPort.begin(baud, SERIAL_8N1, rxPin, txPin);
+        serialPort.begin(baud);
         if (begin(serialPort, parserDebug, parserError))
             return true;
     }
