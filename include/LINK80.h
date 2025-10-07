@@ -11,7 +11,7 @@ public:
     static constexpr uint8_t    PACKET_HEADER = 0xAA;
     static constexpr uint32_t CRC_POLYNOMIAL = 0xEDB88320;
     static constexpr size_t MAX_PACKET_SIZE = 252;
-    static constexpr size_t MAX_PAYLOAD_SIZE = 245 ; // 252 - 3 header bytes - 4 checksum bytes
+    static constexpr size_t MAX_LINK80_PAYLOAD_SIZE = 245 ; // 252 - 3 header bytes - 4 checksum bytes
     static constexpr size_t HEADER_SIZE = 3;
     static constexpr size_t CHECKSUM_SIZE = 4;
     
@@ -122,7 +122,7 @@ public:
     struct UnpackedPacket {
         bool valid;
         uint8_t message_type;
-        uint8_t data[MAX_PAYLOAD_SIZE - 2]; // Max data size minus addressing and message type
+        uint8_t data[MAX_LINK80_PAYLOAD_SIZE - 2]; // Max data size minus addressing and message type
         size_t data_length;
         const char* error;
     };
@@ -146,9 +146,9 @@ private:
     static uint32_t calculateCRC32(const uint8_t* data, size_t length);
 
     // Static buffers for packing
-    static uint8_t payloadBuffer[MAX_PAYLOAD_SIZE + CHECKSUM_SIZE];
+    static uint8_t payloadBuffer[MAX_LINK80_PAYLOAD_SIZE + CHECKSUM_SIZE];
     static uint8_t packetBuffer[MAX_PACKET_SIZE + 5];
-    static uint8_t payloadAndChecksumBuffer[MAX_PAYLOAD_SIZE + CHECKSUM_SIZE];
+    static uint8_t payloadAndChecksumBuffer[MAX_LINK80_PAYLOAD_SIZE + CHECKSUM_SIZE];
 };
 
 #endif // LINK80_H

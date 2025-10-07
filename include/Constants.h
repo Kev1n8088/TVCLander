@@ -93,9 +93,7 @@
 #define WHEEL_MOI 0.0000018
 #define MAX_WHEEL_SPEED 1400.0f // rad/s
 
-#define GPS_SERIAL_PORT Serial8
-#define GPS_BAUD_RATE 460800 // Baud rate for GPS module
-#define GPS_POLLING_INTERVAL 20 // Polling interval for GPS data in milliseconds
+#define GPS_POLLING_INTERVAL 60 // Polling interval for GPS data in milliseconds
 
 #define VBAT_SENSE_PIN A13
 #define VBAT_DIVIDER 4.214f * 3.3f // Voltage divider ratio for battery voltage sensing

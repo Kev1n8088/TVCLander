@@ -1,8 +1,5 @@
 #include "GPSHandler.h"
 
-static uint8_t gpsTXBuffer[16 * 1024];
-static uint8_t gpsRXBuffer[16 * 1024];
-
 GPSHandler::GPSHandler() {
     lastRTCMMillis = 0; // Initialize last RTCM correction time 
     lastUpdateTime = 0;
@@ -11,11 +8,9 @@ GPSHandler::GPSHandler() {
 }
 
 int GPSHandler::begin() {
-    GPS_SERIAL_PORT.begin(GPS_BAUD_RATE); // Initialize GPS serial port with specified baud rate
-    GPS_SERIAL_PORT.addMemoryForRead(gpsRXBuffer, sizeof(gpsRXBuffer)); // Allocate memory for reading GPS data
-    GPS_SERIAL_PORT.addMemoryForWrite(gpsTXBuffer, sizeof(gpsTXBuffer)); // Allocate memory for writing GPS data
+    Wire.begin(); // Initialize I2C
     resetHome();
-    if(!gps.begin(GPS_SERIAL_PORT)) { // Initialize the GPS module
+    if(!gps.begin()) { // Initialize the GPS module
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("GPS initialization failed!");
         }
@@ -25,38 +20,11 @@ int GPSHandler::begin() {
             DEBUG_SERIAL.println("GPS initialized successfully!");
         }
     }
-    if(!gps.ensureModeRover()){
-        return -2; // Return error code if GPS is not in Rover mode
-    } // Ensure GPS is in Rover mode
 
-    busyWait(1);
-
-    if(!gps.setFixInterval(100)){
-        return -4; // Return error code if setting fix interval fails
-    }
-    
-    busyWait(1);
-
-    if(!gps.hotStart()){
-        return -5; // Return error code if hot start fails
-    } // Perform a hot start to get all checks
-
-    busyWait(2);
-
-    
-    if(!gps.setConstellations(true, true, true, true, true, true)){
-        return -3;
-    } // Enable all constellations
-    
-    busyWait(1);
-
-    if(!gps.setCNR(30)){ 
-        return -6; // Return error code if setting CNR threshold fails
-    } // Set minimum CNR threshold
-
-    if(!gps.setElevationAngle(15)){ //aggressive filtering
-        return -7; // Return error code if setting elevation angle fails
-    } // Set minimum elevation angle
+    gps.setNavigationFrequency(12); 
+    gps.setAutoPVT(true);
+    gps.setI2CInput(COM_TYPE_UBX | COM_TYPE_RTCM3, VAL_LAYER_RAM_BBR);
+    gps.saveConfiguration(); 
 
     return 0;
 }
@@ -67,8 +35,12 @@ void GPSHandler::gpsLoop(){
         return; // Skip if not enough time has passed since last update
     }
     lastUpdateMillis = millis(); // Update last update time
-    gps.update(); // Update GPS data
-    if(gps.isNewSnapshotAvailable()){
+    if (gps.checkUblox(5) && gps.getPVT(5) && (gps.getInvalidLlh(5) == false)){
+        if(gpsInfo.timeOfWeek == gps.getTimeOfWeek(5)){
+            // No new data
+            return;
+        }
+
         updateInterval = millis() - lastUpdateTime; // logs update interval
         lastUpdateTime = millis();
 
@@ -76,26 +48,54 @@ void GPSHandler::gpsLoop(){
         if (DEBUG_MODE) {
             //DEBUG_SERIAL.println("New GPS data available");
         }
-        current.latitude = gps.getLatitude(); // Get current latitude
-        current.longitude = gps.getLongitude(); // Get current longitude
-        current.altitude = gps.getAltitude(); // Get current altitude
-        current.velocityNorth = gps.getNorthVelocity(); // Get current velocity in North direction
-        current.velocityEast = gps.getEastVelocity(); // Get current velocity in East direction
-        current.velocityDown = gps.getDownVelocity(); // Get current velocity in Down direction
+        current.latitude = gps.getLatitude(5) * 1e-7; // Get current latitude
+        current.longitude = gps.getLongitude(5) * 1e-7; // Get current longitude
+        current.altitude = gps.getAltitude(5) * 1e-3; // Get current altitude
+        current.velocityNorth = gps.getNedNorthVel(5) * 1e-3; // Get current velocity in North direction
+        current.velocityEast = gps.getNedEastVel(5) * 1e-3; // Get current velocity in East direction
+        current.velocityDown = gps.getNedDownVel(5) * 1e-3; // Get current velocity in Down direction
 
-        gpsInfo.fixType = gps.getFixQuality(); // Get GPS fix type=
+        int rtkStatus = gps.getCarrierSolutionType(5);
+
+        if(rtkStatus == 0){
+            switch(gps.getFixType(5)){
+                case 0:
+                case 1:
+                case 2:
+                    gpsInfo.fixType = 0; // No-Fix
+                    break;
+                case 3:
+                    gpsInfo.fixType = 1; // 3D-Fix
+                    break;
+                case 4:
+                    gpsInfo.fixType = 2; // DGPS-Fix
+                    break;
+                case 5:
+                    gpsInfo.fixType = 3; // GPS-PPS
+                    break;
+            }
+        }else{
+            switch(rtkStatus){
+                case 2:
+                    gpsInfo.fixType = 4; // RTK-Fix
+                    break;
+                case 1:
+                    gpsInfo.fixType = 5; // RTK-Flt
+                    break;
+            }
+        }
         gpsInfo.home = home; // Set home position
         gpsInfo.pos = current; // Set current position
 
         gpsInfo.xyz = getDistance(home, current); // Calculate distance from home position
-        gpsInfo.satsInView = gps.getSatellitesInViewCount(); // Get number of satellites in view
-        gpsInfo.satsUsed = gps.getSatellitesUsedCount(); // Get number of satellites used for fix
+        gpsInfo.satsInView = gps.getSIV(5); // Get number of satellites in view
+        gpsInfo.satsUsed = gpsInfo.satsInView;
 
-        gpsInfo.pdop = gps.getPdop(); // Get PDOP value
-        gpsInfo.timeOfWeek = gps.getTimeOfWeek(); // Get time of week in milliseconds
+        gpsInfo.pdop = gps.getPDOP(5) * 1e-2; // Get PDOP value
+        gpsInfo.timeOfWeek = gps.getTimeOfWeek(5); // Get time of week in milliseconds
 
-        gpsInfo.error2D = gps.get2DError(); // Get 2D error
-        gpsInfo.error3D = gps.get3DError(); // Get 3D error
+        gpsInfo.error2D = gps.getHorizontalAccuracy(5) * 1e-3; // Get 2D error
+        gpsInfo.error3D = gps.getPositionAccuracy(5) * 1e-3; // Get 3D error
 
         gpsInfo.rtcmAge = millis() - lastRTCMMillis; // Calculate age of RTCM correction data
     }   
@@ -115,7 +115,7 @@ void GPSHandler::setCurrentAsHome() {
         }
         return; // Do not set home if current position is invalid
     }
-    if(gps.getFixQuality() != 4){
+    if(gps.getCarrierSolutionType() != 2){
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("GPS fix quality is insufficient to set home position");
         }
@@ -148,23 +148,13 @@ bool GPSHandler::dataReady(){
     return false;
 }
 
-/**
- * @brief Busy wait for a specified number of seconds while updating GPS data.
- */
-void GPSHandler::busyWait(int seconds) {
-    uint64_t start = millis();
-    while (millis() - start < seconds * 1000) {
-        gps.update();
-        // Busy wait for the specified number of seconds
-    }
-}
 
-void GPSHandler::sendRTCMCorrection(const uint8_t* data, size_t length) {
+void GPSHandler::sendRTCMCorrection(uint8_t* data, size_t length) {
     if (DEBUG_MODE) {
         DEBUG_SERIAL.println("Sending RTCM correction data");
     }
 
-    GPS_SERIAL_PORT.write(data, length); // Send RTCM correction data over GPS serial port
+    gps.pushRawData(data, length); // Send RTCM correction data over GPS serial port
     lastRTCMMillis = millis(); // Update last RTCM correction time
 }
 
