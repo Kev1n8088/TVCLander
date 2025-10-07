@@ -37,7 +37,6 @@ typedef struct GPSInfo{
 
 class GPSHandler {
 private:
-    SFE_UBLOX_GNSS gps; 
     uint64_t lastUpdateMillis;
     bool DRY;
     uint32_t lastRTCMMillis; // Last time RTCM correction was received

@@ -1,5 +1,7 @@
 #include "GPSHandler.h"
 
+SFE_UBLOX_GNSS gps; 
+
 GPSHandler::GPSHandler() {
     lastRTCMMillis = 0; // Initialize last RTCM correction time 
     lastUpdateTime = 0;
@@ -10,7 +12,7 @@ GPSHandler::GPSHandler() {
 int GPSHandler::begin() {
     Wire.begin(); // Initialize I2C
     resetHome();
-    if(!gps.begin()) { // Initialize the GPS module
+    if(!gps.begin(Wire)) { // Initialize the GPS module
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("GPS initialization failed!");
         }
@@ -21,10 +23,11 @@ int GPSHandler::begin() {
         }
     }
 
-    gps.setNavigationFrequency(12); 
-    gps.setAutoPVT(true);
+    gps.setNavigationFrequency(10); 
+    //gps.setAutoPVT(true);
+    gps.setI2COutput(COM_TYPE_UBX);
     gps.setI2CInput(COM_TYPE_UBX | COM_TYPE_RTCM3, VAL_LAYER_RAM_BBR);
-    gps.saveConfiguration(); 
+    //gps.saveConfiguration(); 
 
     return 0;
 }
@@ -35,7 +38,7 @@ void GPSHandler::gpsLoop(){
         return; // Skip if not enough time has passed since last update
     }
     lastUpdateMillis = millis(); // Update last update time
-    if (gps.checkUblox(5) && gps.getPVT(5) && (gps.getInvalidLlh(5) == false)){
+    if (gps.getHPPOSLLH(5)){
         if(gpsInfo.timeOfWeek == gps.getTimeOfWeek(5)){
             // No new data
             return;
@@ -48,8 +51,17 @@ void GPSHandler::gpsLoop(){
         if (DEBUG_MODE) {
             //DEBUG_SERIAL.println("New GPS data available");
         }
-        current.latitude = gps.getLatitude(5) * 1e-7; // Get current latitude
-        current.longitude = gps.getLongitude(5) * 1e-7; // Get current longitude
+        
+        // Get high-resolution latitude (combine base + high-precision components)
+        int32_t lat_base = gps.getHighResLatitude(5);  // degrees * 10^-7
+        int8_t lat_hp = gps.getHighResLatitudeHp(5);   // degrees * 10^-9
+        current.latitude = (double)lat_base * 1e-7 + (double)lat_hp * 1e-9;
+        
+        // Get high-resolution longitude (combine base + high-precision components)
+        int32_t lon_base = gps.getHighResLongitude(5); // degrees * 10^-7
+        int8_t lon_hp = gps.getHighResLongitudeHp(5);  // degrees * 10^-9
+        current.longitude = (double)lon_base * 1e-7 + (double)lon_hp * 1e-9;
+        
         current.altitude = gps.getAltitude(5) * 1e-3; // Get current altitude
         current.velocityNorth = gps.getNedNorthVel(5) * 1e-3; // Get current velocity in North direction
         current.velocityEast = gps.getNedEastVel(5) * 1e-3; // Get current velocity in East direction
