@@ -16,7 +16,6 @@
 #include "GPSHandler.h"
 #include "KalmanFilter.h"
 #include <Servo.h>
-#include "MotorController.h"
 
 class StateEstimation
 {
@@ -161,6 +160,7 @@ private:
 public: 
     //Just debugging
     int GPSStatus;
+    int maxMillisPerLoop;
     void abort();
 
     StateEstimation();

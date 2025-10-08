@@ -12,6 +12,17 @@ GPSHandler::GPSHandler() {
 int GPSHandler::begin() {
     Wire.begin(); // Initialize I2C
     resetHome();
+
+    delay(3000); // Wait for GPS module to power up
+
+    // DEBUG_SERIAL.begin(DEBUG_BAUD); // Initialize debug serial port with specified baud rate
+    //   while (!DEBUG_SERIAL) {
+    //     delay(1); // Wait for serial port to connect. Needed for native USB port only
+    //   }
+    //   DEBUG_SERIAL.println("Debug mode enabled");
+
+
+    // gps.enableDebugging(DEBUG_SERIAL, false); // Enable or disable debugging based on DEBUG_MODE
     if(!gps.begin(Wire)) { // Initialize the GPS module
         if (DEBUG_MODE) {
             DEBUG_SERIAL.println("GPS initialization failed!");
@@ -23,11 +34,12 @@ int GPSHandler::begin() {
         }
     }
 
-    gps.setNavigationFrequency(10); 
-    //gps.setAutoPVT(true);
+    gps.setNavigationFrequency(12); 
+    gps.setAutoPVT(true);
+    gps.setAutoHPPOSLLH(true);
     gps.setI2COutput(COM_TYPE_UBX);
     gps.setI2CInput(COM_TYPE_UBX | COM_TYPE_RTCM3, VAL_LAYER_RAM_BBR);
-    //gps.saveConfiguration(); 
+    gps.saveConfiguration(); 
 
     return 0;
 }
@@ -65,7 +77,7 @@ void GPSHandler::gpsLoop(){
         current.altitude = gps.getAltitude(5) * 1e-3; // Get current altitude
         current.velocityNorth = gps.getNedNorthVel(5) * 1e-3; // Get current velocity in North direction
         current.velocityEast = gps.getNedEastVel(5) * 1e-3; // Get current velocity in East direction
-        current.velocityDown = gps.getNedDownVel(5) * 1e-3; // Get current velocity in Down direction
+        current.velocityDown = gps.getNedDownVel(5) * 1e-4; // Get current velocity in Down direction
 
         int rtkStatus = gps.getCarrierSolutionType(5);
 

@@ -78,7 +78,7 @@ int StateEstimation::begin(){
  * @brief Resets all state estimation variables to initial conditions.
  */
 void StateEstimation::resetVariables(){
-
+    maxMillisPerLoop = 0;
     lastBodyAngAccelCommand[0] = 0;
     lastBodyAngAccelCommand[1] = 0;
     filteredActualAngularAccel[0] = 0;
@@ -342,9 +342,10 @@ void StateEstimation::estimateState(){
 
     if (micros() - lastStateEstimateMicros < STATE_ESTIMATION_INTERVAL_US) { // If not enough time has passed since last update, return
         return;
-    
+        
     }
 
+    maxMillisPerLoop = maxMillisPerLoop * 0.5 + 0.5 * (micros() - lastStateEstimateMicros) / 1000; // Update typical loop time in milliseconds
     lastStateEstimateMicros = micros(); // Update last state estimate time
 
     if (launchTime != 0.0f){
@@ -998,6 +999,7 @@ void StateEstimation::updatePrelaunch(){
  */
 uint8_t StateEstimation::setVehicleState(int state){
     // 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
+    maxMillisPerLoop = 0; // Reset max loop time for performance monitoring
     if (state >= -1 && state <= 7) {
         switch (state){
             case 1: // armed process
