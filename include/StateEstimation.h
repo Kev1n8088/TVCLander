@@ -15,7 +15,6 @@
 #include "PID.h"
 #include "GPSHandler.h"
 #include "KalmanFilter.h"
-#include <Servo.h>
 
 class StateEstimation
 {

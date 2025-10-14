@@ -77,7 +77,7 @@ void GPSHandler::gpsLoop(){
         current.altitude = gps.getAltitude(5) * 1e-3; // Get current altitude
         current.velocityNorth = gps.getNedNorthVel(5) * 1e-3; // Get current velocity in North direction
         current.velocityEast = gps.getNedEastVel(5) * 1e-3; // Get current velocity in East direction
-        current.velocityDown = gps.getNedDownVel(5) * 1e-4; // Get current velocity in Down direction
+        current.velocityDown = gps.getNedDownVel(5) * 1e-3; // Get current velocity in Down direction
 
         int rtkStatus = gps.getCarrierSolutionType(5);
 
@@ -118,7 +118,7 @@ void GPSHandler::gpsLoop(){
         gpsInfo.pdop = gps.getPDOP(5) * 1e-2; // Get PDOP value
         gpsInfo.timeOfWeek = gps.getTimeOfWeek(5); // Get time of week in milliseconds
 
-        gpsInfo.error2D = gps.getHorizontalAccuracy(5) * 1e-3; // Get 2D error
+        gpsInfo.error2D = gps.getHorizontalAccuracy(5) * 1e-4; // Get 2D error
         gpsInfo.error3D = gps.getPositionAccuracy(5) * 1e-3; // Get 3D error
 
         gpsInfo.rtcmAge = millis() - lastRTCMMillis; // Calculate age of RTCM correction data

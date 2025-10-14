@@ -170,7 +170,7 @@ void Telemetry::sendTelemetry(StateEstimation& state) {
                 .accelerometer_x = state.getAccelCalibrated()[0],
                 .accelerometer_y = state.getAccelCalibrated()[1],
                 .accelerometer_z = state.getAccelCalibrated()[2],
-                .baro_altitude = (float)state.maxMillisPerLoop, // zero for now since barometer is not used
+                .baro_altitude = state.getGPSHandler().getUpdateInterval(), // zero for now since barometer is not used
                 .gyro_bias_yaw = state.getGyroBias()[0],
                 .gyro_bias_pitch = state.getGyroBias()[1],
                 .gyro_bias_roll = state.getGyroBias()[2],
