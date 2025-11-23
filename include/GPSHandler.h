@@ -2,7 +2,8 @@
 #define GPSHANDLER_H
 
 #include <Arduino.h>
-#include <SparkFun_LG290P_GNSS.h>
+#include <Wire.h>
+#include <SparkFun_u-blox_GNSS_v3.h>
 #include "Constants.h"
 
 typedef struct positionAndVelocity {
@@ -36,7 +37,6 @@ typedef struct GPSInfo{
 
 class GPSHandler {
 private:
-    LG290P gps; 
     uint64_t lastUpdateMillis;
     bool DRY;
     uint32_t lastRTCMMillis; // Last time RTCM correction was received
@@ -63,7 +63,7 @@ public:
         return gpsInfo;
     }
 
-    void sendRTCMCorrection(const uint8_t* data, size_t length);
+    void sendRTCMCorrection(uint8_t* data, size_t length);
 
     float getUpdateInterval() const {
         return updateInterval;

@@ -9,15 +9,12 @@
 #include <SCH1.h>
 #include <Adafruit_NeoPixel.h>
 #include "ICM45686.h"
-#include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_LIS2MDL.h>
 #include "PID.h"
 #include "GPSHandler.h"
 #include "KalmanFilter.h"
-#include <Servo.h>
-#include "MotorController.h"
 
 class StateEstimation
 {
@@ -162,6 +159,7 @@ private:
 public: 
     //Just debugging
     int GPSStatus;
+    int maxMillisPerLoop;
     void abort();
 
     StateEstimation();

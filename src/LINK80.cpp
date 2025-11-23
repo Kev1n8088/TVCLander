@@ -1,9 +1,9 @@
 #include "LINK80.h"
 
 
-uint8_t LINK80::payloadBuffer[LINK80::MAX_PAYLOAD_SIZE + LINK80::CHECKSUM_SIZE] = {0};
+uint8_t LINK80::payloadBuffer[LINK80::MAX_LINK80_PAYLOAD_SIZE + LINK80::CHECKSUM_SIZE] = {0};
 uint8_t LINK80::packetBuffer[LINK80::MAX_PACKET_SIZE + 5] = {0};
-uint8_t LINK80::payloadAndChecksumBuffer[LINK80::MAX_PAYLOAD_SIZE + LINK80::CHECKSUM_SIZE] = {0};
+uint8_t LINK80::payloadAndChecksumBuffer[LINK80::MAX_LINK80_PAYLOAD_SIZE + LINK80::CHECKSUM_SIZE] = {0};
 
 // Pack a command acknowledgement
 size_t LINK80::packCommandAck(uint8_t command_type, uint8_t command_id, uint8_t error, uint8_t* p, uint32_t vehicle_ms, uint32_t down_count) {
@@ -259,7 +259,7 @@ uint32_t LINK80::unpackUINT32(const uint8_t* buffer, size_t offset) {
 }
 
 size_t LINK80::packPacket(const uint8_t* payload, size_t payload_size, uint8_t* buffer, size_t buffer_size) {
-    if (payload_size > MAX_PAYLOAD_SIZE) {
+    if (payload_size > MAX_LINK80_PAYLOAD_SIZE) {
         return 0; // Return 0 for error instead of throwing
     }
     

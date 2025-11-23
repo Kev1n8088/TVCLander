@@ -86,16 +86,14 @@
 #define LAUNCH_ACCEL_THRESHOLD 12.5 // m/s^2
 
 #define MISALIGN_CHARACTERIZATION_TIME 0.25 //s, T+ at which we stop characterizing gimbal misalign
-#define GIMBAL_STABILIZATION_TIME 3.8 //s, T+ at which we switch to stabilize mode
+#define GIMBAL_STABILIZATION_TIME 2.4 //s, T+ at which we switch to stabilize mode
 
 #define BELOW_APOGEE_THRESHOLD 1.0 // meters
 
 #define WHEEL_MOI 0.0000018
 #define MAX_WHEEL_SPEED 1400.0f // rad/s
 
-#define GPS_SERIAL_PORT Serial8
-#define GPS_BAUD_RATE 460800 // Baud rate for GPS module
-#define GPS_POLLING_INTERVAL 20 // Polling interval for GPS data in milliseconds
+#define GPS_POLLING_INTERVAL 30 // Polling interval for GPS data in milliseconds
 
 #define VBAT_SENSE_PIN A13
 #define VBAT_DIVIDER 4.214f * 3.3f // Voltage divider ratio for battery voltage sensing

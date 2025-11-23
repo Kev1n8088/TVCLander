@@ -7,7 +7,6 @@
 #include <SCH1.h>
 #include <Adafruit_NeoPixel.h>
 #include "ICM45686.h"
-#include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BMP3XX.h"
 #include <Adafruit_LIS2MDL.h>
@@ -79,7 +78,7 @@ int StateEstimation::begin(){
  * @brief Resets all state estimation variables to initial conditions.
  */
 void StateEstimation::resetVariables(){
-
+    maxMillisPerLoop = 0;
     lastBodyAngAccelCommand[0] = 0;
     lastBodyAngAccelCommand[1] = 0;
     filteredActualAngularAccel[0] = 0;
@@ -196,12 +195,12 @@ float StateEstimation::getMass(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(1.174, 1.234 - 0.01806 * (timeSinceLaunch + 0.26)); // 1.2kg at launch, losing 18.06g/s, min 1.14kg
+        return max(1.209, 1.269 - 0.01806 * (timeSinceLaunch + 0.26)); // 1.269kg at launch, losing 18.06g/s, min 1.209kg
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 1.174; // If landing ignition time not set, landing burn has not yet started, return 1.188kg
+            return 1.209; // If landing ignition time not set, landing burn has not yet started, return 1.209kg
         }
-        return max(1.061, 1.121 - 0.01806 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return max(1.098, 1.158 - 0.01806 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -213,12 +212,12 @@ float StateEstimation::getMomentArm(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return min(0.151906, 0.138444 + 0.0038463 * (timeSinceLaunch + 0.26)); 
+        return min(0.145021, 0.132257 + 0.0036469 * (timeSinceLaunch + 0.26)); 
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 0.151906; 
+            return 0.145021; 
         }
-        return min(0.173, 0.163422 + 0.0027366 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return min(0.164234, 0.155416 + 0.0025194 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -230,12 +229,12 @@ float StateEstimation::getPitchYawMMOI(){
 
     // TODO: adjust nums
     if (vehicleState < 5){
-        return max(0.05767, 0.06208 - 0.00126 * (timeSinceLaunch + 0.26));
+        return max(0.061915, 0.066115 - 0.0012 * (timeSinceLaunch + 0.26));
     }else{
         if(landingIgnitionTime < 0.05f){
-            return 0.05767;
+            return 0.061915;
         }
-        return max(0.05243, 0.05429 - 0.0005314 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
+        return max(0.057185, 0.058865 - 0.0048 * max(0, timeSinceLaunch - landingIgnitionTime - 0.1));
     }
 }
 
@@ -343,9 +342,10 @@ void StateEstimation::estimateState(){
 
     if (micros() - lastStateEstimateMicros < STATE_ESTIMATION_INTERVAL_US) { // If not enough time has passed since last update, return
         return;
-    
+        
     }
 
+    maxMillisPerLoop = maxMillisPerLoop * 0.5 + 0.5 * (micros() - lastStateEstimateMicros) / 1000; // Update typical loop time in milliseconds
     lastStateEstimateMicros = micros(); // Update last state estimate time
 
     if (launchTime != 0.0f){
@@ -416,9 +416,9 @@ void StateEstimation::estimateState(){
                 digitalWrite(CHUTE_PYRO, LOW);
                 detectApogee();
             }
-            // if(vehicleState == 3 && timeSinceLaunch > GIMBAL_STABILIZATION_TIME){ // After gimbal stabilization time, switch to return to vertical state
-            //     vehicleState = 4;
-            // }
+            if(vehicleState == 3 && timeSinceLaunch > GIMBAL_STABILIZATION_TIME){ // After gimbal stabilization time, switch to return to vertical state
+                vehicleState = 4;
+            }
         case 5: // Past apogee state
             if(digitalRead(IMU0_DRY_PIN) == HIGH) { // Check if DRY pin is HIGH, default behavior DRY pin is active HIGH
                 readIMU0(); // Read IMU data only if DRY
@@ -999,6 +999,7 @@ void StateEstimation::updatePrelaunch(){
  */
 uint8_t StateEstimation::setVehicleState(int state){
     // 0: Disarmed, 1: Armed, 2: Launching, 3: In Flight, 4: Landing, 5: Landed
+    maxMillisPerLoop = 0; // Reset max loop time for performance monitoring
     if (state >= -1 && state <= 7) {
         switch (state){
             case 1: // armed process
@@ -1102,7 +1103,7 @@ void StateEstimation::detectApogee(){
                 return;
             }
 
-            landingIgnitionAltitude = 0.81 * apogeeAltitude;
+            landingIgnitionAltitude = 0.83 * apogeeAltitude;
             vehicleState = 5;
             
         }
